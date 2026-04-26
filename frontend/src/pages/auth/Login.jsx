@@ -62,40 +62,136 @@ const labelStyle = {
 }
 
 // ─── IdentifierField ──────────────────────────────────────────────────────────
-// Auto-detects email vs phone as the user types.
-//   • starts with a digit → phone mode: country-code selector slides in,
-//     value sent to API = dialCode + local digits (e.g. "+503 7890-1234" → "+50378901234")
-//   • contains '@'        → email mode: plain input, value sent as-is
-//   • empty / other       → idle: plain input, wide placeholder
+// Three-layer auto-detection:
+//
+//  1. Timezone (on mount) — Intl.DateTimeFormat resolves the user's timezone
+//     and maps it to a dial code. Silent, no API call needed. Fallback: +503.
+//
+//  2. Input mode (every keystroke) — starts with digit → phone mode,
+//     contains '@' → email mode, empty → idle.
+//
+//  3. Digit-count validation (phone mode) — every country has a known local
+//     number length. As the user types, the hint line turns green (✓ right
+//     length), amber (still typing), or red (too many / wrong country?).
+//     This catches the case where someone has a foreign number and needs to
+//     pick a different country code.
 
 const DEFAULT_DIAL = '+503'
 
 const DIAL_CODES = [
-  { dial: '+503', flag: '🇸🇻', name: 'El Salvador'   },
-  { dial: '+1',   flag: '🇺🇸', name: 'USA / Canada'  },
-  { dial: '+52',  flag: '🇲🇽', name: 'México'        },
-  { dial: '+502', flag: '🇬🇹', name: 'Guatemala'     },
-  { dial: '+504', flag: '🇭🇳', name: 'Honduras'      },
-  { dial: '+505', flag: '🇳🇮', name: 'Nicaragua'     },
-  { dial: '+506', flag: '🇨🇷', name: 'Costa Rica'    },
-  { dial: '+507', flag: '🇵🇦', name: 'Panamá'        },
-  { dial: '+34',  flag: '🇪🇸', name: 'España'        },
-  { dial: '+44',  flag: '🇬🇧', name: 'UK'            },
-  { dial: '+49',  flag: '🇩🇪', name: 'Germany'       },
-  { dial: '+33',  flag: '🇫🇷', name: 'France'        },
-  { dial: '+39',  flag: '🇮🇹', name: 'Italy'         },
-  { dial: '+55',  flag: '🇧🇷', name: 'Brazil'        },
-  { dial: '+54',  flag: '🇦🇷', name: 'Argentina'     },
-  { dial: '+57',  flag: '🇨🇴', name: 'Colombia'      },
-  { dial: '+56',  flag: '🇨🇱', name: 'Chile'         },
-  { dial: '+51',  flag: '🇵🇪', name: 'Perú'          },
-  { dial: '+91',  flag: '🇮🇳', name: 'India'         },
-  { dial: '+86',  flag: '🇨🇳', name: 'China'         },
-  { dial: '+81',  flag: '🇯🇵', name: 'Japan'         },
-  { dial: '+82',  flag: '🇰🇷', name: 'South Korea'   },
-  { dial: '+61',  flag: '🇦🇺', name: 'Australia'     },
-  { dial: '+64',  flag: '🇳🇿', name: 'New Zealand'   },
+  { dial: '+503', flag: '🇸🇻', name: 'El Salvador'  },
+  { dial: '+1',   flag: '🇺🇸', name: 'USA / Canada' },
+  { dial: '+52',  flag: '🇲🇽', name: 'México'       },
+  { dial: '+502', flag: '🇬🇹', name: 'Guatemala'    },
+  { dial: '+504', flag: '🇭🇳', name: 'Honduras'     },
+  { dial: '+505', flag: '🇳🇮', name: 'Nicaragua'    },
+  { dial: '+506', flag: '🇨🇷', name: 'Costa Rica'   },
+  { dial: '+507', flag: '🇵🇦', name: 'Panamá'       },
+  { dial: '+34',  flag: '🇪🇸', name: 'España'       },
+  { dial: '+44',  flag: '🇬🇧', name: 'UK'           },
+  { dial: '+49',  flag: '🇩🇪', name: 'Germany'      },
+  { dial: '+33',  flag: '🇫🇷', name: 'France'       },
+  { dial: '+39',  flag: '🇮🇹', name: 'Italy'        },
+  { dial: '+55',  flag: '🇧🇷', name: 'Brazil'       },
+  { dial: '+54',  flag: '🇦🇷', name: 'Argentina'    },
+  { dial: '+57',  flag: '🇨🇴', name: 'Colombia'     },
+  { dial: '+56',  flag: '🇨🇱', name: 'Chile'        },
+  { dial: '+51',  flag: '🇵🇪', name: 'Perú'         },
+  { dial: '+91',  flag: '🇮🇳', name: 'India'        },
+  { dial: '+86',  flag: '🇨🇳', name: 'China'        },
+  { dial: '+81',  flag: '🇯🇵', name: 'Japan'        },
+  { dial: '+82',  flag: '🇰🇷', name: 'South Korea'  },
+  { dial: '+61',  flag: '🇦🇺', name: 'Australia'    },
+  { dial: '+64',  flag: '🇳🇿', name: 'New Zealand'  },
 ]
+
+// Expected local digit count (without the country prefix) per dial code.
+// Used to validate length as the user types and surface a ✓ / ⚠ hint.
+const DIGIT_LENGTHS = {
+  '+503': { min: 8,  max: 8  },  // El Salvador  — 8 digits
+  '+502': { min: 8,  max: 8  },  // Guatemala    — 8 digits
+  '+504': { min: 8,  max: 8  },  // Honduras     — 8 digits
+  '+505': { min: 8,  max: 8  },  // Nicaragua    — 8 digits
+  '+506': { min: 8,  max: 8  },  // Costa Rica   — 8 digits
+  '+507': { min: 7,  max: 8  },  // Panamá       — 7–8 digits
+  '+1':   { min: 10, max: 10 },  // USA/Canada   — 10 digits
+  '+52':  { min: 10, max: 10 },  // México       — 10 digits
+  '+34':  { min: 9,  max: 9  },  // España       — 9 digits
+  '+44':  { min: 10, max: 10 },  // UK           — 10 digits
+  '+49':  { min: 10, max: 11 },  // Germany      — 10–11 digits
+  '+33':  { min: 9,  max: 9  },  // France       — 9 digits
+  '+39':  { min: 9,  max: 10 },  // Italy        — 9–10 digits
+  '+55':  { min: 10, max: 11 },  // Brazil       — 10–11 digits
+  '+54':  { min: 10, max: 10 },  // Argentina    — 10 digits
+  '+57':  { min: 10, max: 10 },  // Colombia     — 10 digits
+  '+56':  { min: 9,  max: 9  },  // Chile        — 9 digits
+  '+51':  { min: 9,  max: 9  },  // Perú         — 9 digits
+  '+91':  { min: 10, max: 10 },  // India        — 10 digits
+  '+86':  { min: 11, max: 11 },  // China        — 11 digits
+  '+81':  { min: 10, max: 11 },  // Japan        — 10–11 digits
+  '+82':  { min: 10, max: 11 },  // South Korea  — 10–11 digits
+  '+61':  { min: 9,  max: 9  },  // Australia    — 9 digits
+  '+64':  { min: 8,  max: 9  },  // New Zealand  — 8–9 digits
+}
+
+// Maps IANA timezone strings to dial codes.
+// Covers all countries in DIAL_CODES with their common timezone variants.
+const TIMEZONE_TO_DIAL = {
+  'America/El_Salvador':            '+503',
+  'America/Guatemala':              '+502',
+  'America/Tegucigalpa':            '+504',
+  'America/Managua':                '+505',
+  'America/Costa_Rica':             '+506',
+  'America/Panama':                 '+507',
+  'America/New_York':               '+1',
+  'America/Chicago':                '+1',
+  'America/Denver':                 '+1',
+  'America/Phoenix':                '+1',
+  'America/Los_Angeles':            '+1',
+  'America/Anchorage':              '+1',
+  'America/Honolulu':               '+1',
+  'America/Toronto':                '+1',
+  'America/Vancouver':              '+1',
+  'America/Winnipeg':               '+1',
+  'America/Halifax':                '+1',
+  'America/St_Johns':               '+1',
+  'America/Mexico_City':            '+52',
+  'America/Cancun':                 '+52',
+  'America/Monterrey':              '+52',
+  'America/Tijuana':                '+52',
+  'America/Bogota':                 '+57',
+  'America/Lima':                   '+51',
+  'America/Santiago':               '+56',
+  'America/Argentina/Buenos_Aires': '+54',
+  'America/Buenos_Aires':           '+54',
+  'America/Sao_Paulo':              '+55',
+  'America/Manaus':                 '+55',
+  'America/Fortaleza':              '+55',
+  'America/Caracas':                '+58',
+  'Europe/London':                  '+44',
+  'Europe/Madrid':                  '+34',
+  'Europe/Paris':                   '+33',
+  'Europe/Berlin':                  '+49',
+  'Europe/Rome':                    '+39',
+  'Asia/Kolkata':                   '+91',
+  'Asia/Calcutta':                  '+91',
+  'Asia/Shanghai':                  '+86',
+  'Asia/Tokyo':                     '+81',
+  'Asia/Seoul':                     '+82',
+  'Australia/Sydney':               '+61',
+  'Australia/Melbourne':            '+61',
+  'Australia/Brisbane':             '+61',
+  'Pacific/Auckland':               '+64',
+}
+
+function detectTimezoneDialCode() {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+    return TIMEZONE_TO_DIAL[tz] ?? DEFAULT_DIAL
+  } catch {
+    return DEFAULT_DIAL
+  }
+}
 
 // 'phone' when starts with a digit, 'email' when contains @, 'idle' otherwise
 function detectInputMode(raw) {
@@ -105,15 +201,48 @@ function detectInputMode(raw) {
   return 'idle'
 }
 
+// Returns { text, color } hint based on digit count vs country expectation.
+function digitHint(localDigits, dialCode, country) {
+  if (!localDigits) return { text: `${country.flag} Auto-detected — change if needed`, color: 'var(--text)' }
+
+  const len     = localDigits.length
+  const spec    = DIGIT_LENGTHS[dialCode]
+  if (!spec) return { text: `Sending as ${dialCode}${localDigits}`, color: 'var(--primary)' }
+
+  const { min, max } = spec
+
+  if (len < min) {
+    const need = min - len
+    return {
+      text:  `${need} more digit${need === 1 ? '' : 's'} for ${country.name} (${min === max ? min : `${min}–${max}`} total)`,
+      color: 'var(--text)',
+    }
+  }
+  if (len >= min && len <= max) {
+    return {
+      text:  `✓ Looks like a valid ${country.name} number — sending as ${dialCode}${localDigits}`,
+      color: '#059669',
+    }
+  }
+  // len > max
+  return {
+    text:  `⚠ ${country.name} numbers have ${min === max ? min : `${min}–${max}`} digits — check country code`,
+    color: '#d97706',
+  }
+}
+
 function IdentifierField({ value, onChange, autoFocus = false }) {
   const [text,     setText]     = useState(value ?? '')
   const [dialCode, setDialCode] = useState(DEFAULT_DIAL)
 
+  // Layer 1 — timezone auto-detection on first render
+  useEffect(() => {
+    setDialCode(detectTimezoneDialCode())
+  }, [])
+
+  // Layer 2 — input mode derived from what the user is typing
   const mode = detectInputMode(text)
 
-  // Compose the value the API actually receives:
-  //   phone → dialCode + digits only (strips spaces/dashes)
-  //   email / idle → raw text
   function compose(raw, code) {
     return detectInputMode(raw) === 'phone'
       ? code + raw.replace(/[^\d]/g, '')
@@ -130,10 +259,14 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
     if (mode === 'phone') onChange(compose(text, code))
   }
 
-  const hintText =
-    mode === 'phone' ? `Will send as: ${dialCode}${text.replace(/[^\d]/g, '')}` :
-    mode === 'email' ? 'Signing in with email address' :
-    'Type your email, or start with a digit to enter a phone number'
+  // Layer 3 — digit-count hint
+  const selectedCountry = DIAL_CODES.find(c => c.dial === dialCode) ?? DIAL_CODES[0]
+  const localDigits     = text.replace(/[^\d]/g, '')
+  const { text: hintText, color: hintColor } = mode === 'phone'
+    ? digitHint(localDigits, dialCode, selectedCountry)
+    : mode === 'email'
+    ? { text: 'Signing in with email address', color: 'var(--text)' }
+    : { text: 'Type your email, or start with a digit to enter a phone number', color: 'var(--text)' }
 
   return (
     <div>
@@ -195,9 +328,8 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
         />
       </div>
 
-      {/* Contextual hint below the field */}
-      <p className="text-xs mt-1 transition-all"
-        style={{ color: mode === 'phone' ? 'var(--primary)' : 'var(--text)' }}>
+      {/* Contextual hint — updates in real time */}
+      <p className="text-xs mt-1" style={{ color: hintColor }}>
         {hintText}
       </p>
     </div>
