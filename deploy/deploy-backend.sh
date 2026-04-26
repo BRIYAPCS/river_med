@@ -5,8 +5,9 @@
 #
 # Safe guarantees:
 #   - Never touches .env or .env.production
-#   - Never deletes any file
+#   - Never deletes any data or file
 #   - Only restarts river-med-backend (other PM2 apps untouched)
+#   - DB password is never written to logs or process listings
 #   - Exits immediately on any error (set -euo pipefail)
 #
 # Usage:
@@ -59,7 +60,7 @@ done
 echo ""
 
 # ── step 1: pull latest code ──────────────────────────────────────────────────
-log "[1/4] Pulling latest code from origin/main"
+log "[1/5] Pulling latest code from origin/main"
 cd "${REPO_DIR}"
 git fetch --all --quiet
 git reset --hard origin/main
@@ -67,11 +68,9 @@ success "Code updated — $(git log -1 --format='%h %s')"
 echo ""
 
 # ── step 2: install dependencies ──────────────────────────────────────────────
-log "[2/4] Installing backend dependencies"
+log "[2/5] Installing backend dependencies"
 cd "${BACKEND_DIR}"
 
-# npm ci is strict (uses package-lock.json exactly) and faster.
-# Fall back to npm install only if the lock file is absent (should not happen).
 if [ -f "package-lock.json" ]; then
   npm ci --omit=dev --prefer-offline
 else
@@ -81,13 +80,71 @@ fi
 success "Dependencies installed"
 echo ""
 
-# ── step 3: restart PM2 ───────────────────────────────────────────────────────
-log "[3/4] Reloading PM2 app: ${PM2_APP}"
+# ── step 3: run database migrations ──────────────────────────────────────────
+MIGRATE_SQL="${BACKEND_DIR}/src/db/migrate.sql"
 
-# pm2 reload = zero-downtime (new process starts before old one stops).
-# Fall back to pm2 restart if the app has never been started.
+if [ -f "${MIGRATE_SQL}" ]; then
+  log "[3/5] Running database migrations"
+
+  # Load DB_PASSWORD from backend/.env — value is never echoed or logged.
+  # Falls back to an empty string which triggers a clear failure message.
+  DB_PASSWORD=""
+  ENV_FILE="${BACKEND_DIR}/.env"
+
+  if [ -f "${ENV_FILE}" ]; then
+    # Extract everything after the first '=' on the DB_PASSWORD line,
+    # then strip any surrounding single or double quotes.
+    _raw=$(grep -E '^DB_PASSWORD=' "${ENV_FILE}" | head -1 | cut -d= -f2-)
+    _raw="${_raw%\'}" ; _raw="${_raw#\'}"
+    _raw="${_raw%\"}" ; _raw="${_raw#\"}"
+    DB_PASSWORD="${_raw}"
+    unset _raw
+  else
+    warn "No .env found at ${ENV_FILE}"
+  fi
+
+  if [ -z "${DB_PASSWORD}" ]; then
+    fail "DB_PASSWORD not found in ${ENV_FILE} — cannot run migrations safely"
+  fi
+
+  # Write a temporary MySQL option file.
+  # Using --defaults-extra-file instead of -p"..." ensures the password
+  # never appears in process listings (ps aux) or shell xtrace logs.
+  MY_CNF=$(mktemp /tmp/rivermed_mysql_XXXXXX.cnf)
+  chmod 600 "${MY_CNF}"
+  printf '[client]\npassword=%s\n' "${DB_PASSWORD}" > "${MY_CNF}"
+  unset DB_PASSWORD   # drop from shell environment immediately
+
+  # Always delete the temp file on exit, even if the script aborts.
+  trap 'rm -f "${MY_CNF}"' EXIT
+
+  log "  File    : ${MIGRATE_SQL}"
+  log "  Target  : river_med @ localhost (user: briya)"
+
+  if mysql --defaults-extra-file="${MY_CNF}" \
+           -u briya \
+           river_med \
+           < "${MIGRATE_SQL}"; then
+    success "Migrations applied successfully"
+  else
+    fail "Migration failed — see MySQL output above. PM2 was NOT restarted. Database is unchanged past the failed statement."
+  fi
+
+  # Clean up temp file and cancel the exit trap (normal path).
+  rm -f "${MY_CNF}"
+  trap - EXIT
+else
+  log "[3/5] No src/db/migrate.sql found — skipping migration step"
+fi
+echo ""
+
+# ── step 4: restart PM2 ───────────────────────────────────────────────────────
+log "[4/5] Reloading PM2 app: ${PM2_APP}"
+
+# --update-env picks up any new variables added to the ecosystem config
+# without requiring a full pm2 delete + start cycle.
 if pm2 list | grep -q "${PM2_APP}"; then
-  pm2 reload "${PM2_APP}"
+  pm2 reload "${PM2_APP}" --update-env
 else
   warn "App not found in PM2 list — starting from ecosystem config"
   pm2 start "${REPO_DIR}/ecosystem.config.cjs" --env production
@@ -97,8 +154,8 @@ pm2 save --force
 success "PM2 reloaded and state saved"
 echo ""
 
-# ── step 4: wait for stabilisation ───────────────────────────────────────────
-log "[4/4] Waiting for process to stabilise (3 s)"
+# ── step 5: wait for stabilisation ───────────────────────────────────────────
+log "[5/5] Waiting for process to stabilise (3 s)"
 sleep 3
 pm2 show "${PM2_APP}" | grep -E "status|restarts|uptime" || true
 echo ""
@@ -128,7 +185,7 @@ while [ "${ATTEMPT}" -lt "${HEALTH_RETRIES}" ]; do
     warn "Health check response (last attempt):"
     cat /tmp/river_med_health.json 2>/dev/null || true
     echo ""
-    fail "Health check failed after ${HEALTH_RETRIES} attempts. Check: pm2 logs ${PM2_APP}"
+    fail "Health check failed after ${HEALTH_RETRIES} attempts. Run: pm2 logs ${PM2_APP}"
   fi
 done
 
@@ -136,6 +193,6 @@ done
 echo ""
 success "========================================"
 success " River Med deployment complete"
-success " Commit : $(git -C ${REPO_DIR} log -1 --format='%h %s')"
+success " Commit : $(git -C "${REPO_DIR}" log -1 --format='%h %s')"
 success " Time   : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 success "========================================"
