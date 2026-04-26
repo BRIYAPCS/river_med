@@ -422,10 +422,38 @@ async function resetPassword(req, res) {
 }
 
 // ── GET /api/auth/me ──────────────────────────────────────────────────────────
-// Returns the authenticated user from the JWT payload.
+// Returns fresh user data from the DB on every page load.
+// Querying the DB (not just decoding the JWT) ensures first_name / last_name
+// are always current — even if the stored token predates the patient profile
+// being linked or the name fields being populated.
 
 async function me(req, res) {
-  res.json({ user: req.user })
+  try {
+    const [[user]] = await getPool().query(`
+      SELECT u.*,
+        COALESCE(p.first_name, d.first_name)   AS first_name,
+        p.middle_name                           AS middle_name,
+        COALESCE(p.last_name,  d.last_name)    AS last_name,
+        p.second_last_name                      AS second_last_name,
+        CONCAT_WS(' ',
+          COALESCE(p.first_name, d.first_name),
+          p.middle_name,
+          COALESCE(p.last_name, d.last_name),
+          p.second_last_name
+        )                                       AS full_name
+      FROM   users u
+      LEFT JOIN patients p ON u.patient_id = p.id
+      LEFT JOIN doctors  d ON u.doctor_id  = d.id
+      WHERE  u.id = ?
+    `, [req.user.id])
+
+    if (!user) return res.status(404).json({ error: 'User not found.' })
+
+    res.json({ user: buildPayload(user) })
+  } catch (err) {
+    console.error('[auth] me:', err.message)
+    res.status(500).json({ error: err.message })
+  }
 }
 
 module.exports = {
