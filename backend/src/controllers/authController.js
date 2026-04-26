@@ -140,6 +140,13 @@ async function patientRegister(req, res) {
         return res.status(409).json({ error: 'An account with this phone number already exists.' })
     }
 
+    // Guard against patients.email UNIQUE violation — can happen when a patient
+    // row was created via the lazy-link path (getMyPatient slow path) before the
+    // user formally completed registration.
+    const [[existPatient]] = await conn.query('SELECT id FROM patients WHERE email = ?', [email])
+    if (existPatient)
+      return res.status(409).json({ error: 'An account with this email already exists.' })
+
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS)
 
     await conn.beginTransaction()
@@ -442,8 +449,11 @@ async function me(req, res) {
           p.second_last_name
         )                                       AS full_name
       FROM   users u
-      LEFT JOIN patients p ON u.patient_id = p.id
-      LEFT JOIN doctors  d ON u.doctor_id  = d.id
+      LEFT JOIN patients p ON p.id = COALESCE(
+                                u.patient_id,
+                                (SELECT id FROM patients WHERE email = u.email LIMIT 1)
+                              )
+      LEFT JOIN doctors  d ON u.doctor_id = d.id
       WHERE  u.id = ?
     `, [req.user.id])
 
