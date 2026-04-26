@@ -193,6 +193,31 @@ function detectTimezoneDialCode() {
   }
 }
 
+// When digit count fits a different country better than the current selection,
+// return the best alternative dial code (null if the current one already fits).
+// Priority list: clinic home country first, then Central America, then rest of world.
+const SUGGEST_PRIORITY = [
+  '+503','+502','+504','+505','+506','+507',
+  '+52','+57','+56','+51','+54','+55',
+  '+1','+34','+44','+33','+49','+39',
+  '+91','+86','+81','+82','+61','+64',
+]
+
+function suggestDialForDigits(digits, currentDial) {
+  const len = digits.length
+  if (!len) return null
+
+  const cur = DIGIT_LENGTHS[currentDial]
+  if (cur && len >= cur.min && len <= cur.max) return null   // current is fine
+
+  const matches = Object.entries(DIGIT_LENGTHS)
+    .filter(([dial, { min, max }]) => dial !== currentDial && len >= min && len <= max)
+    .map(([dial]) => dial)
+
+  if (!matches.length) return null
+  return SUGGEST_PRIORITY.find(p => matches.includes(p)) ?? matches[0]
+}
+
 // 'phone' when starts with a digit, 'email' when contains @, 'idle' otherwise
 function detectInputMode(raw) {
   if (!raw) return 'idle'
@@ -259,7 +284,7 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
     if (mode === 'phone') onChange(compose(text, code))
   }
 
-  // Layer 3 — digit-count hint
+  // Layer 3 — digit-count hint + mismatch suggestion
   const selectedCountry = DIAL_CODES.find(c => c.dial === dialCode) ?? DIAL_CODES[0]
   const localDigits     = text.replace(/[^\d]/g, '')
   const { text: hintText, color: hintColor } = mode === 'phone'
@@ -267,6 +292,10 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
     : mode === 'email'
     ? { text: 'Signing in with email address', color: 'var(--text)' }
     : { text: 'Type your email, or start with a digit to enter a phone number', color: 'var(--text)' }
+
+  // When digit count matches a different country better, offer a one-click switch
+  const suggestedDial    = mode === 'phone' ? suggestDialForDigits(localDigits, dialCode) : null
+  const suggestedCountry = suggestedDial ? DIAL_CODES.find(c => c.dial === suggestedDial) : null
 
   return (
     <div>
@@ -333,6 +362,26 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
       {/* Contextual hint — updates in real time */}
       <p className="text-xs mt-1" style={{ color: hintColor }}>
         {hintText}
+        {suggestedCountry && (
+          <>
+            {' · '}
+            <button
+              type="button"
+              onClick={() => handleDial(suggestedDial)}
+              style={{
+                background:  'none',
+                border:      'none',
+                padding:     0,
+                cursor:      'pointer',
+                color:       'var(--primary)',
+                fontWeight:  600,
+                fontSize:    'inherit',
+              }}
+            >
+              Switch to {suggestedCountry.flag} {suggestedCountry.name}?
+            </button>
+          </>
+        )}
       </p>
     </div>
   )
@@ -531,7 +580,7 @@ export default function Login() {
   }
 
   const tabs = [
-    { id: 'password', label: 'Password' },
+    { id: 'password', label: 'Email' },
     { id: 'pin',      label: 'Phone Number' },
   ]
 
