@@ -29,8 +29,10 @@ import AdminAnalytics  from './pages/admin/Analytics'
 import CalendarPage    from './pages/calendar/CalendarPage'
 
 // ─── doctor pages ─────────────────────────────────────────────────────────────
-import DoctorDashboard from './pages/doctor/Dashboard'
-import DoctorRefills   from './pages/doctor/Refills'
+import DoctorDashboard      from './pages/doctor/Dashboard'
+import DoctorRefills        from './pages/doctor/Refills'
+import DoctorAppointments   from './pages/doctor/Appointments'
+import DoctorPrescriptions  from './pages/doctor/Prescriptions'
 
 // ─── patient portal pages ────────────────────────────────────────────────────
 import PatientPortalDashboard from './pages/patient/Dashboard'
@@ -65,9 +67,11 @@ export default function App() {
       {/* ── doctor portal — requires role: doctor ── */}
       <Route element={<ProtectedRoute allowedRoles={['doctor']} />}>
         <Route path="/doctor" element={<DoctorLayout />}>
-          <Route index            element={<DoctorDashboard />} />
-          <Route path="refills"   element={<DoctorRefills />} />
-          <Route path="messages"  element={<ChatPage />} />
+          <Route index                  element={<DoctorDashboard />} />
+          <Route path="appointments"    element={<DoctorAppointments />} />
+          <Route path="prescriptions"   element={<DoctorPrescriptions />} />
+          <Route path="refills"         element={<DoctorRefills />} />
+          <Route path="messages"        element={<ChatPage />} />
         </Route>
       </Route>
 

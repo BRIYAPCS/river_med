@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getTodayAppointments, updateAppointmentStatus } from '../../services/api'
+import {
+  getTodayAppointments,
+  updateAppointmentStatus,
+  getPendingRefills,
+  getMessageThreads,
+} from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { getSocket } from '../../services/socket'
 import PatientDetail from '../../features/patients/PatientDetail'
@@ -109,14 +114,27 @@ export default function DoctorDashboard() {
   const [loading,      setLoading]       = useState(true)
   const [updatingIds,  setUpdatingIds]   = useState(new Set())
 
-  // Doctor's own ID — falls back to the appointment's doctor_id when clicking
   const doctorId = user?.doctor_id ?? null
+
+  // extra stat counters
+  const [pendingRefills, setPendingRefills] = useState(null)
+  const [unreadMessages, setUnreadMessages] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     const data = await getTodayAppointments().catch(() => [])
     setAppointments(data)
     setLoading(false)
+  }, [])
+
+  // load sidebar stats independently so queue doesn't wait for them
+  useEffect(() => {
+    getPendingRefills()
+      .then(data => setPendingRefills(data.length))
+      .catch(() => setPendingRefills(0))
+    getMessageThreads()
+      .then(threads => setUnreadMessages(threads.reduce((s, t) => s + (Number(t.unread_count) || 0), 0)))
+      .catch(() => setUnreadMessages(0))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -195,10 +213,12 @@ export default function DoctorDashboard() {
 
   // ── stats bar ──
   const stats = [
-    { label: 'Waiting',     value: activeQueue.filter(a => normalise(a.status) === 'waiting').length,     color: '#d97706' },
-    { label: 'In Progress', value: activeQueue.filter(a => normalise(a.status) === 'in_progress').length, color: '#2563eb' },
-    { label: 'Completed',   value: completedToday.length,                                                 color: '#059669' },
-    { label: 'Total Today', value: appointments.length,                                                   color: '#0d9488' },
+    { label: 'Waiting',         value: activeQueue.filter(a => normalise(a.status) === 'waiting').length,     color: '#d97706' },
+    { label: 'In Progress',     value: activeQueue.filter(a => normalise(a.status) === 'in_progress').length, color: '#2563eb' },
+    { label: 'Completed',       value: completedToday.length,                                                 color: '#059669' },
+    { label: 'Total Today',     value: appointments.length,                                                   color: '#0d9488' },
+    { label: 'Pending Refills', value: pendingRefills ?? '—',                                                 color: '#f59e0b' },
+    { label: 'Unread Msgs',     value: unreadMessages ?? '—',                                                 color: '#6366f1' },
   ]
 
   return (
