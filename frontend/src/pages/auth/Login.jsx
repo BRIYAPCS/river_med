@@ -260,12 +260,7 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
   const [text,     setText]     = useState(value ?? '')
   const [dialCode, setDialCode] = useState(DEFAULT_DIAL)
 
-  // Layer 1 — timezone auto-detection on first render
-  useEffect(() => {
-    setDialCode(detectTimezoneDialCode())
-  }, [])
-
-  // Layer 2 — input mode derived from what the user is typing
+  // Input mode derived from what the user is typing
   const mode = detectInputMode(text)
 
   function compose(raw, code) {
