@@ -5,13 +5,14 @@ on:
     branches:
       - main
     paths:
-      # Only trigger when backend code actually changes.
-      # Push to frontend-only paths won't waste a deploy.
+      # Only trigger when backend-related files change.
+      # Pure frontend pushes will not trigger a server deploy.
       - 'backend/**'
+      - 'deploy/deploy-backend.sh'
       - 'ecosystem.config.cjs'
       - '.github/workflows/deploy-backend.yml'
 
-  # Allow manual trigger from the GitHub Actions tab
+  # Allow manual trigger from the Actions tab (useful for force-redeploys)
   workflow_dispatch:
 
 jobs:
@@ -21,7 +22,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      # ── 1. Print context (no secrets) ──────────────────────────────────────
+      # ── 1. Log context (no secrets printed) ──────────────────────────────────
       - name: Print deploy context
         run: |
           echo "Triggered by : ${{ github.actor }}"
@@ -29,66 +30,27 @@ jobs:
           echo "Commit SHA   : ${{ github.sha }}"
           echo "Commit msg   : ${{ github.event.head_commit.message }}"
 
-      # ── 2. SSH into Linode and run deploy script ────────────────────────────
-      - name: Deploy via SSH
+      # ── 2. SSH in and call the deploy script ──────────────────────────────────
+      # The script lives in the repo itself so it is always in sync with the code.
+      # script_stop: true — any non-zero exit inside the script fails this step.
+      - name: Run deploy script on Linode
         uses: appleboy/ssh-action@v1.0.3
         with:
           host:        ${{ secrets.LINODE_HOST }}
           username:    ${{ secrets.LINODE_USER }}
           key:         ${{ secrets.LINODE_SSH_KEY }}
           port:        ${{ secrets.LINODE_PORT }}
-          # Fail the step immediately if any command exits non-zero
           script_stop: true
           script: |
-            set -euo pipefail
+            bash /home/briya/projects/river_med/deploy/deploy-backend.sh
 
-            echo "=== [1/4] Pulling latest code ==="
-            cd /home/briya/projects/river_med
-            git fetch --all
-            git reset --hard origin/main
-
-            echo "=== [2/4] Installing backend dependencies ==="
-            cd backend
-            # ci is preferred (uses package-lock.json exactly).
-            # Fall back to install if lock file is missing.
-            npm ci --omit=dev 2>/dev/null || npm install --omit=dev
-
-            echo "=== [3/4] Restarting PM2 — river-med-backend only ==="
-            # reload = zero-downtime restart (drains existing connections first).
-            # Falls back to restart if the app is not currently running.
-            pm2 reload river-med-backend 2>/dev/null || pm2 restart river-med-backend
-            pm2 save
-
-            echo "=== [4/4] Waiting for process to stabilise ==="
-            sleep 4
-            pm2 show river-med-backend | grep -E "status|restarts|uptime"
-
-      # ── 3. Health check from the Actions runner ─────────────────────────────
-      # Hits the public health endpoint to confirm the backend is responding.
-      # Uses the /api/river/ prefix that nginx rewrites to /api/ on port 4001.
-      - name: Health check
-        run: |
-          echo "Checking https://briya-api.duckdns.org/api/river/health …"
-          for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              --max-time 10 \
-              https://briya-api.duckdns.org/api/river/health)
-            echo "Attempt $i — HTTP $STATUS"
-            if [ "$STATUS" = "200" ]; then
-              echo "✓ Health check passed"
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "✗ Health check failed after 5 attempts — marking deployment failed"
-          exit 1
-
-      # ── 4. Notify on failure ────────────────────────────────────────────────
+      # ── 3. Annotate on failure ────────────────────────────────────────────────
       - name: Annotate on failure
         if: failure()
         run: |
-          echo "::error::Deployment failed. Check the SSH output above."
-          echo "::notice::To rollback manually, SSH in and run:"
-          echo "::notice::  cd /home/briya/projects/river_med && git log --oneline -5"
+          echo "::error::Deployment failed — see SSH step output for details."
+          echo "::notice::Rollback: SSH in and run the commands below."
+          echo "::notice::  cd /home/briya/projects/river_med"
+          echo "::notice::  git log --oneline -5"
           echo "::notice::  git reset --hard <previous-sha>"
-          echo "::notice::  cd backend && npm ci --omit=dev && pm2 reload river-med-backend && pm2 save"
+          echo "::notice::  bash deploy/deploy-backend.sh"
