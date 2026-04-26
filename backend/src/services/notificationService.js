@@ -21,22 +21,25 @@ const C = {
 }
 
 // ── Resend client ─────────────────────────────────────────────────────────────
+// Accepts RESEND_API_KEY (new) or EMAIL_PROVIDER_API_KEY (legacy) — whichever is set.
+const RESEND_KEY = process.env.RESEND_API_KEY || process.env.EMAIL_PROVIDER_API_KEY
+
 let _resend = null
 function getResend() {
   if (!_resend) {
     const { Resend } = require('resend')
-    _resend = new Resend(process.env.EMAIL_PROVIDER_API_KEY)
+    _resend = new Resend(RESEND_KEY)
   }
   return _resend
 }
 
-const FROM = process.env.EMAIL_FROM || 'River Med <onboarding@resend.dev>'
+const FROM = process.env.EMAIL_FROM || 'River Med <noreply@innova-tech-solution.com>'
 
 // ── shared email sender (production only) ────────────────────────────────────
 
 async function sendEmailReal({ to, subject, html, text }) {
-  if (!process.env.EMAIL_PROVIDER_API_KEY) {
-    throw new Error('EMAIL_PROVIDER_API_KEY is not set.')
+  if (!RESEND_KEY) {
+    throw new Error('RESEND_API_KEY is not set.')
   }
   const { error } = await getResend().emails.send({ from: FROM, to, subject, html, text })
   if (error) {
