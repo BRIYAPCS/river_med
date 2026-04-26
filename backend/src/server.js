@@ -35,7 +35,7 @@ const C = {
   dim:     '\x1b[2m',
 }
 
-const PORT = process.env.PORT || 4000
+const PORT = process.env.PORT || 4001
 
 async function startServer() {
   await connectWithRetry(3, 2000)
@@ -52,7 +52,7 @@ async function startServer() {
       console.error(
         `\n\x1b[31m[ERROR]\x1b[0m Port ${PORT} is already in use.\n` +
         `  Run this in PowerShell to free it:\n` +
-        `  \x1b[2mStop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT}).OwningProcess -Force\x1b[0m\n`
+        `  \x1b[2mStop-Process -Id (Get-NetTCPConnection -LocalPort ${PORT} -ErrorAction SilentlyContinue).OwningProcess -Force\x1b[0m\n`
       )
       process.exit(1)   // clean exit → nodemon will retry on next file save
     } else {

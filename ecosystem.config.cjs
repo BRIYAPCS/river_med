@@ -51,7 +51,7 @@ module.exports = {
       // All other secrets are read from backend/.env by server.js
       env: {
         NODE_ENV: 'development',
-        PORT:     4000,
+        PORT:     4001,
       },
 
       // ── production env ────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ module.exports = {
       // backend/.env.production by server.js — do NOT hardcode them here.
       env_production: {
         NODE_ENV: 'production',
-        PORT:     4000,
+        PORT:     4001,
       },
     },
   ],
