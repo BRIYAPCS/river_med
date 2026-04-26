@@ -1,4 +1,25 @@
-require('dotenv').config()
+// ── env loader ────────────────────────────────────────────────────────────────
+// Must run before any other module reads process.env.
+// NODE_ENV is set by the OS / PM2 before this process starts, so it is
+// readable here even before dotenv runs.
+const path = require('path')
+const fs   = require('fs')
+
+;(function loadEnv() {
+  const isProd   = process.env.NODE_ENV === 'production'
+  const target   = path.join(__dirname, '..', isProd ? '.env.production' : '.env')
+  const fallback = path.join(__dirname, '..', '.env')
+
+  if (fs.existsSync(target)) {
+    require('dotenv').config({ path: target })
+  } else if (fs.existsSync(fallback)) {
+    // .env.production missing — fall back to .env so the app never crashes
+    require('dotenv').config({ path: fallback })
+  }
+  // If neither file exists dotenv is simply not called; process.env values
+  // set by PM2 / the OS are still available.
+})()
+
 const http = require('http')
 const os   = require('os')
 const app  = require('./app')

@@ -7,10 +7,12 @@ node_modules/
 dist/
 build/
 
-# environment / secrets
+# environment / secrets — never commit real credentials
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
 *.env
 
 # logs
