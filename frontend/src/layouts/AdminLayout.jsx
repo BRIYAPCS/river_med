@@ -19,16 +19,12 @@ const ACCENT_BG = 'rgba(99,102,241,0.10)'
 
 function getUserDisplay(user) {
   if (!user) return { name: 'Admin', initials: 'AD' }
-  const fullName = user.full_name || (user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : null)
-  if (fullName) {
-    const parts    = fullName.trim().split(/\s+/)
-    const initials = parts.length >= 2
-      ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
-      : parts[0][0].toUpperCase()
-    return { name: fullName, initials }
+  if (user.first_name && user.last_name) {
+    const name = `${user.first_name} ${user.last_name}`
+    return { name, initials: `${user.first_name[0]}${user.last_name[0]}`.toUpperCase() }
   }
-  const raw      = user.email ? user.email.split('@')[0].replace(/[._-]/g, ' ') : 'Admin'
-  const name     = raw.replace(/\b\w/g, c => c.toUpperCase())
+  const fallback = user.full_name || user.email?.split('@')[0].replace(/[._-]/g, ' ') || 'Admin'
+  const name     = fallback.replace(/\b\w/g, c => c.toUpperCase())
   const initials = name.trim().split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'AD'
   return { name, initials }
 }
@@ -123,9 +119,8 @@ export default function AdminLayout() {
             </span>
           </div>
 
-          {/* mobile: show user name + logout */}
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium hidden sm:block truncate max-w-32"
+            <span className="text-sm font-semibold truncate max-w-40"
               style={{ color: 'var(--text-h)' }}>
               {name}
             </span>
