@@ -35,6 +35,15 @@ function getResend() {
 
 const FROM = process.env.EMAIL_FROM || 'River Med <noreply@innova-tech-solution.com>'
 
+// Log email config once at startup so it's visible in pm2 logs
+if (!isDev) {
+  if (RESEND_KEY) {
+    console.log(`${C.cyan}[EMAIL]${C.reset} Resend ready · from: ${FROM}`)
+  } else {
+    console.warn(`${C.red}[EMAIL]${C.reset} RESEND_API_KEY not set — emails will fail`)
+  }
+}
+
 // ── shared email sender (production only) ────────────────────────────────────
 
 async function sendEmailReal({ to, subject, html, text }) {
