@@ -134,60 +134,27 @@ const DIGIT_LENGTHS = {
   '+64':  { min: 8,  max: 9  },  // New Zealand  — 8–9 digits
 }
 
-// Maps IANA timezone strings to dial codes.
-// Covers all countries in DIAL_CODES with their common timezone variants.
-const TIMEZONE_TO_DIAL = {
-  'America/El_Salvador':            '+503',
-  'America/Guatemala':              '+502',
-  'America/Tegucigalpa':            '+504',
-  'America/Managua':                '+505',
-  'America/Costa_Rica':             '+506',
-  'America/Panama':                 '+507',
-  'America/New_York':               '+1',
-  'America/Chicago':                '+1',
-  'America/Denver':                 '+1',
-  'America/Phoenix':                '+1',
-  'America/Los_Angeles':            '+1',
-  'America/Anchorage':              '+1',
-  'America/Honolulu':               '+1',
-  'America/Toronto':                '+1',
-  'America/Vancouver':              '+1',
-  'America/Winnipeg':               '+1',
-  'America/Halifax':                '+1',
-  'America/St_Johns':               '+1',
-  'America/Mexico_City':            '+52',
-  'America/Cancun':                 '+52',
-  'America/Monterrey':              '+52',
-  'America/Tijuana':                '+52',
-  'America/Bogota':                 '+57',
-  'America/Lima':                   '+51',
-  'America/Santiago':               '+56',
-  'America/Argentina/Buenos_Aires': '+54',
-  'America/Buenos_Aires':           '+54',
-  'America/Sao_Paulo':              '+55',
-  'America/Manaus':                 '+55',
-  'America/Fortaleza':              '+55',
-  'America/Caracas':                '+58',
-  'Europe/London':                  '+44',
-  'Europe/Madrid':                  '+34',
-  'Europe/Paris':                   '+33',
-  'Europe/Berlin':                  '+49',
-  'Europe/Rome':                    '+39',
-  'Asia/Kolkata':                   '+91',
-  'Asia/Calcutta':                  '+91',
-  'Asia/Shanghai':                  '+86',
-  'Asia/Tokyo':                     '+81',
-  'Asia/Seoul':                     '+82',
-  'Australia/Sydney':               '+61',
-  'Australia/Melbourne':            '+61',
-  'Australia/Brisbane':             '+61',
-  'Pacific/Auckland':               '+64',
+// Maps ISO 3166-1 alpha-2 country codes → dial codes.
+// Used by the Cloudflare IP-detection hook below.
+const ISO_TO_DIAL = {
+  SV: '+503', GT: '+502', HN: '+504', NI: '+505', CR: '+506', PA: '+507',
+  US: '+1',   CA: '+1',   MX: '+52',
+  ES: '+34',  GB: '+44',  DE: '+49',  FR: '+33',  IT: '+39',
+  BR: '+55',  AR: '+54',  CO: '+57',  CL: '+56',  PE: '+51',  VE: '+58',
+  IN: '+91',  CN: '+86',  JP: '+81',  KR: '+82',
+  AU: '+61',  NZ: '+64',
 }
 
-function detectTimezoneDialCode() {
+// Detects the visitor's country via Cloudflare's always-free edge endpoint.
+// Response is plain text; we extract the `loc=XX` line (e.g. loc=SV).
+// No API key, no rate limit, sub-100 ms from anywhere in the world.
+// Falls back to DEFAULT_DIAL (+503) silently on any error.
+async function detectDialByIp() {
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-    return TIMEZONE_TO_DIAL[tz] ?? DEFAULT_DIAL
+    const res  = await fetch('https://www.cloudflare.com/cdn-cgi/trace')
+    const text = await res.text()
+    const iso  = text.match(/^loc=([A-Z]{2})/m)?.[1]
+    return ISO_TO_DIAL[iso] ?? DEFAULT_DIAL
   } catch {
     return DEFAULT_DIAL
   }
@@ -259,6 +226,12 @@ function digitHint(localDigits, dialCode, country) {
 function IdentifierField({ value, onChange, autoFocus = false }) {
   const [text,     setText]     = useState(value ?? '')
   const [dialCode, setDialCode] = useState(DEFAULT_DIAL)
+
+  // Auto-detect country from the visitor's real IP on mount.
+  // Starts at +503; updates silently once the Cloudflare response arrives.
+  useEffect(() => {
+    detectDialByIp().then(setDialCode)
+  }, [])
 
   // Input mode derived from what the user is typing
   const mode = detectInputMode(text)
