@@ -43,30 +43,106 @@ async function createPatient(req, res) {
   }
 }
 
-// GET /api/patients/me — returns the authenticated user's own patient profile.
-// patient_id is embedded in the JWT by buildPayload() at login/verify-otp time.
-// A single query by primary key is sufficient — no user_id column needed.
+// GET /api/patients/me — returns (and lazily links) the caller's patient profile.
+//
+// Fast path — patient_id already in JWT:
+//   SELECT * FROM patients WHERE id = ?
+//
+// Slow path — patient_id missing from JWT (e.g. admin-created accounts,
+//   or tokens issued before the link was established):
+//   1. Load the user row to get name + email.
+//   2. Look for an existing patients row by email (prevents duplicates).
+//   3a. Found  → link it:  UPDATE users SET patient_id = existing.id
+//   3b. Missing → create:  INSERT patients, then UPDATE users SET patient_id = new.id
+//   Both 3a/3b run inside a transaction so the link is atomic.
+//
+// patients.user_id is NOT used anywhere in this function.
 async function getMyPatient(req, res) {
-  const { patient_id } = req.user
+  const { id: userId, patient_id } = req.user
 
-  if (!patient_id) {
-    return res.status(404).json({ error: 'No patient profile linked to this account.' })
+  // ── fast path ──────────────────────────────────────────────────────────────
+  if (patient_id) {
+    try {
+      const [[patient]] = await getPool().query(
+        'SELECT * FROM patients WHERE id = ?',
+        [patient_id]
+      )
+      if (!patient) {
+        return res.status(404).json({ error: 'Patient profile not found.' })
+      }
+      return res.json(patient)
+    } catch (err) {
+      console.error('[patients] getMyPatient (fast path):', err.message)
+      return res.status(500).json({ error: err.message })
+    }
   }
 
+  // ── slow path — no patient_id in JWT ──────────────────────────────────────
+  const pool = getPool()
+  const conn = await pool.getConnection()
   try {
-    const [[patient]] = await getPool().query(
-      'SELECT * FROM patients WHERE id = ?',
-      [patient_id]
-    )
+    await conn.beginTransaction()
 
-    if (!patient) {
-      return res.status(404).json({ error: 'Patient profile not found.' })
+    // Step A — load user record for name + email
+    const [[userRow]] = await conn.query(
+      'SELECT email, first_name, last_name FROM users WHERE id = ?',
+      [userId]
+    )
+    if (!userRow) {
+      await conn.rollback()
+      return res.status(404).json({ error: 'User account not found.' })
     }
 
-    res.json(patient)
+    let patient
+
+    // Step B — check for an existing patient row by email (duplicate guard)
+    if (userRow.email) {
+      const [[existing]] = await conn.query(
+        'SELECT * FROM patients WHERE email = ?',
+        [userRow.email]
+      )
+
+      if (existing) {
+        // Step C (found) — link the existing row to the user account
+        await conn.query(
+          'UPDATE users SET patient_id = ? WHERE id = ?',
+          [existing.id, userId]
+        )
+        patient = existing
+      }
+    }
+
+    if (!patient) {
+      // Step C (not found) — create a new patient row then link it
+      const firstName = userRow.first_name || 'Unknown'
+      const lastName  = userRow.last_name  || 'User'
+
+      const [result] = await conn.query(
+        'INSERT INTO patients (first_name, last_name, email) VALUES (?, ?, ?)',
+        [firstName, lastName, userRow.email ?? null]
+      )
+      const newPatientId = result.insertId
+
+      await conn.query(
+        'UPDATE users SET patient_id = ? WHERE id = ?',
+        [newPatientId, userId]
+      )
+
+      const [[newPatient]] = await conn.query(
+        'SELECT * FROM patients WHERE id = ?',
+        [newPatientId]
+      )
+      patient = newPatient
+    }
+
+    await conn.commit()
+    return res.json(patient)
   } catch (err) {
-    console.error('[patients] getMyPatient:', err.message)
-    res.status(500).json({ error: err.message })
+    await conn.rollback()
+    console.error('[patients] getMyPatient (slow path):', err.message)
+    return res.status(500).json({ error: err.message })
+  } finally {
+    conn.release()
   }
 }
 
