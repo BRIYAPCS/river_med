@@ -1,75 +1,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
-  getPatient,
-  getPatientAppointments,
-  getPrescriptions,
+  getMyPatient,
+  getMyAppointments,
+  getMyPrescriptions,
+  getMyRefillRequests,
+  getMessageThreads,
   createRefillRequest,
-  getRefillRequests,
 } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { getSocket } from '../../services/socket'
-import AppointmentList  from '../../features/patient/AppointmentList'
-import PrescriptionList from '../../features/prescriptions/PrescriptionList'
-import RefillList       from '../../features/refills/RefillList'
 
-// ─── toast ────────────────────────────────────────────────────────────────────
-
-function Toast({ message, type, onDismiss }) {
-  if (!message) return null
-  const isError = type === 'error'
-  return (
-    <div
-      onClick={onDismiss}
-      className="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-semibold text-white cursor-pointer"
-      style={{ background: isError ? '#dc2626' : '#059669', maxWidth: 340 }}>
-      <span>{isError ? '⚠' : '✓'}</span>
-      <span>{message}</span>
-    </div>
-  )
-}
-
-// ─── stat card ────────────────────────────────────────────────────────────────
-
-function StatCard({ label, value, icon, color, loading }) {
-  return (
-    <div className="bg-white rounded-2xl border p-5 flex items-center gap-4"
-      style={{ borderColor: 'var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-        style={{ background: color + '18' }}>
-        {icon}
-      </div>
-      <div>
-        <div className="text-2xl font-bold leading-none mb-1" style={{ color: 'var(--text-h)' }}>
-          {loading
-            ? <span className="inline-block w-8 h-6 rounded-lg animate-pulse"
-                style={{ background: 'var(--border)' }} />
-            : value}
-        </div>
-        <div className="text-xs font-medium" style={{ color: 'var(--text)' }}>{label}</div>
-      </div>
-    </div>
-  )
-}
-
-// ─── section wrapper ──────────────────────────────────────────────────────────
-
-function Section({ title, count, loading, children }) {
-  return (
-    <section className="bg-white rounded-2xl border overflow-hidden"
-      style={{ borderColor: 'var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-      <div className="flex items-center justify-between px-5 py-4 border-b"
-        style={{ borderColor: 'var(--border)' }}>
-        <h2 className="text-sm font-bold" style={{ color: 'var(--text-h)' }}>{title}</h2>
-        {!loading && count != null && (
-          <span className="badge text-xs">{count}</span>
-        )}
-      </div>
-      <div className="p-5">{children}</div>
-    </section>
-  )
-}
-
-// ─── greeting ─────────────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function greeting() {
   const h = new Date().getHours()
@@ -78,121 +19,176 @@ function greeting() {
   return 'Good evening'
 }
 
-// ─── main dashboard ───────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  }).format(new Date(iso))
+}
+
+function fmtTime(iso) {
+  if (!iso) return '—'
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(new Date(iso))
+}
+
+const APPT_STATUS = {
+  waiting:     { label: 'Waiting',     bg: 'rgba(245,158,11,0.12)', color: '#d97706' },
+  in_progress: { label: 'In Progress', bg: 'rgba(37,99,235,0.10)',  color: '#2563eb' },
+  completed:   { label: 'Completed',   bg: 'rgba(16,185,129,0.12)', color: '#059669' },
+  cancelled:   { label: 'Cancelled',   bg: 'rgba(107,114,128,0.12)',color: '#6b7280' },
+}
+
+function statusMeta(s) {
+  return APPT_STATUS[s?.toLowerCase()?.replace('-', '_')] ?? APPT_STATUS.waiting
+}
+
+// ─── micro components ─────────────────────────────────────────────────────────
+
+function Spinner({ size = 4 }) {
+  return (
+    <svg className={`animate-spin w-${size} h-${size}`} viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+    </svg>
+  )
+}
+
+function Toast({ message, type, onDismiss }) {
+  if (!message) return null
+  return (
+    <div onClick={onDismiss} className="fixed top-5 right-5 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl text-sm font-semibold text-white cursor-pointer"
+      style={{ background: type === 'error' ? '#dc2626' : '#059669', maxWidth: 340 }}>
+      <span>{type === 'error' ? '⚠' : '✓'}</span>
+      <span>{message}</span>
+    </div>
+  )
+}
+
+function StatCard({ label, value, icon, color, loading }) {
+  return (
+    <div className="bg-white rounded-2xl border p-5 flex items-center gap-4"
+      style={{ borderColor: 'var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+        style={{ background: color + '18' }}>
+        {icon}
+      </div>
+      <div>
+        <div className="text-2xl font-bold leading-none mb-1" style={{ color: 'var(--text-h)' }}>
+          {loading
+            ? <span className="inline-block w-8 h-6 rounded-lg animate-pulse" style={{ background: 'var(--border)' }} />
+            : value ?? '—'}
+        </div>
+        <div className="text-xs font-medium" style={{ color: 'var(--text)' }}>{label}</div>
+      </div>
+    </div>
+  )
+}
+
+function SectionCard({ title, children }) {
+  return (
+    <div className="bg-white rounded-2xl border overflow-hidden"
+      style={{ borderColor: 'var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <div className="px-5 py-3.5 border-b" style={{ borderColor: 'var(--border)' }}>
+        <h2 className="text-sm font-bold" style={{ color: 'var(--text-h)' }}>{title}</h2>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  )
+}
+
+function Empty({ text }) {
+  return <p className="text-sm py-2" style={{ color: 'var(--text)' }}>{text}</p>
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function PatientPortalDashboard() {
-  const { user }                         = useAuth()
-  const patientId                        = user?.patient_id ?? null
+  const { user }      = useAuth()
+  const patientId     = user?.patient_id ?? null
+  const displayName   = user?.first_name ?? null
 
   const [patient,       setPatient]       = useState(null)
   const [appointments,  setAppointments]  = useState([])
   const [prescriptions, setPrescriptions] = useState([])
   const [refillReqs,    setRefillReqs]    = useState([])
+  const [threads,       setThreads]       = useState([])
 
-  const [patientLoad,   setPatientLoad]   = useState(true)
-  const [apptLoad,      setApptLoad]      = useState(true)
-  const [rxLoad,        setRxLoad]        = useState(true)
-  const [refillLoad,    setRefillLoad]    = useState(true)
+  const [loading,  setLoading]  = useState(true)
+  const [rxLoading, setRxLoading] = useState(true)
+  const [toast,    setToast]    = useState(null)
 
-  const [apptError,     setApptError]     = useState(null)
-  const [rxError,       setRxError]       = useState(null)
-  const [refillError,   setRefillError]   = useState(null)
+  // per-prescription loading
+  const [requestedIds, setRequestedIds] = useState(new Set())
+  const [loadingIds,   setLoadingIds]   = useState(new Set())
 
-  // per-prescription refill state
-  const [requestedIds,  setRequestedIds]  = useState(new Set())
-  const [loadingIds,    setLoadingIds]    = useState(new Set())
-
-  // toast
-  const [toast,         setToast]         = useState(null)
-
-  // ── load all data on mount ──────────────────────────────────────────────────
-  const loadRefillRequests = useCallback(async () => {
-    if (!patientId) return
-    setRefillLoad(true)
-    setRefillError(null)
+  const load = useCallback(async () => {
+    setLoading(true)
     try {
-      const data = await getRefillRequests(patientId)
-      setRefillReqs(data)
-      const pendingIds = new Set(
-        data
-          .filter(r => ['Pending', 'pending'].includes(r.status))
-          .map(r => r.prescription_id)
-      )
-      setRequestedIds(pendingIds)
-    } catch (e) {
-      setRefillError(e.message)
+      const [appts, rxs, refills, pInfo, thr] = await Promise.allSettled([
+        getMyAppointments(),
+        getMyPrescriptions(),
+        getMyRefillRequests(),
+        getMyPatient(),
+        getMessageThreads(),
+      ])
+      if (appts.status  === 'fulfilled') setAppointments(appts.value)
+      if (rxs.status    === 'fulfilled') { setPrescriptions(rxs.value); setRxLoading(false) }
+      if (refills.status === 'fulfilled') {
+        setRefillReqs(refills.value)
+        const pids = new Set(
+          refills.value
+            .filter(r => r.status?.toLowerCase() === 'pending')
+            .map(r => r.prescription_id)
+        )
+        setRequestedIds(pids)
+      }
+      if (pInfo.status  === 'fulfilled') setPatient(pInfo.value)
+      if (thr.status    === 'fulfilled') setThreads(thr.value)
     } finally {
-      setRefillLoad(false)
+      setLoading(false)
+      setRxLoading(false)
     }
-  }, [patientId])
+  }, [])
 
+  useEffect(() => { load() }, [load])
+
+  // auto-dismiss toast
   useEffect(() => {
-    if (!patientId) {
-      setPatientLoad(false)
-      setApptLoad(false)
-      setRxLoad(false)
-      setRefillLoad(false)
-      return
-    }
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
 
-    getPatient(patientId)
-      .then(setPatient)
-      .catch(() => {})
-      .finally(() => setPatientLoad(false))
-
-    getPatientAppointments(patientId)
-      .then(setAppointments)
-      .catch(e => setApptError(e.message))
-      .finally(() => setApptLoad(false))
-
-    getPrescriptions(patientId)
-      .then(setPrescriptions)
-      .catch(e => setRxError(e.message))
-      .finally(() => setRxLoad(false))
-
-    loadRefillRequests()
-  }, [patientId, loadRefillRequests])
-
-  // ── real-time socket ────────────────────────────────────────────────────────
+  // socket: real-time appointment + refill updates
   useEffect(() => {
     if (!patientId) return
     const s = getSocket()
     s.emit('join_user', { role: 'patient', patient_id: patientId })
 
-    function onApptUpdated(appt) {
+    const onApptUpdated = appt => {
       if (Number(appt.patient_id) !== Number(patientId)) return
       setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a))
     }
-
-    function onApptCreated(appt) {
+    const onApptCreated = appt => {
       if (Number(appt.patient_id) !== Number(patientId)) return
-      setAppointments(prev => {
-        if (prev.some(a => a.id === appt.id)) return prev
-        return [appt, ...prev]
-      })
+      setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev])
     }
-
-    function onRefillUpdated(refill) {
+    const onRefillUpdated = refill => {
       if (Number(refill.patient_id) !== Number(patientId)) return
       setRefillReqs(prev => {
         const exists = prev.some(r => r.id === refill.id)
-        if (exists) return prev.map(r => r.id === refill.id ? refill : r)
-        return [refill, ...prev]
+        return exists ? prev.map(r => r.id === refill.id ? refill : r) : [refill, ...prev]
       })
-      // sync requestedIds: if approved/denied, remove from pending set
       if (refill.status?.toLowerCase() !== 'pending') {
-        setRequestedIds(prev => {
-          const next = new Set(prev)
-          next.delete(refill.prescription_id)
-          return next
-        })
+        setRequestedIds(prev => { const n = new Set(prev); n.delete(refill.prescription_id); return n })
       }
     }
 
     s.on('appointment_updated', onApptUpdated)
     s.on('appointment_created', onApptCreated)
     s.on('refill_updated',      onRefillUpdated)
-
     return () => {
       s.off('appointment_updated', onApptUpdated)
       s.off('appointment_created', onApptCreated)
@@ -200,22 +196,13 @@ export default function PatientPortalDashboard() {
     }
   }, [patientId])
 
-  // auto-dismiss toast after 4 s
-  useEffect(() => {
-    if (!toast) return
-    const t = setTimeout(() => setToast(null), 4000)
-    return () => clearTimeout(t)
-  }, [toast])
-
-  // ── request refill ──────────────────────────────────────────────────────────
   async function handleRequestRefill(prescriptionId) {
     setLoadingIds(s => new Set(s).add(prescriptionId))
     try {
       await createRefillRequest(prescriptionId)
       setRequestedIds(s => new Set(s).add(prescriptionId))
-      setToast({ message: 'Refill requested successfully', type: 'success' })
-      // reload refill list so the new entry appears immediately
-      loadRefillRequests()
+      setToast({ message: 'Refill requested!', type: 'success' })
+      load()
     } catch (e) {
       setToast({ message: e.message, type: 'error' })
     } finally {
@@ -223,24 +210,11 @@ export default function PatientPortalDashboard() {
     }
   }
 
-  // ── derived data ────────────────────────────────────────────────────────────
-  const upcoming = appointments.filter(
-    a => !['completed', 'cancelled'].includes(a.status?.toLowerCase())
-  )
-  const past = appointments.filter(
-    a => ['completed', 'cancelled'].includes(a.status?.toLowerCase())
-  )
-  const pending    = refillReqs.filter(r => r.status?.toLowerCase() === 'pending').length
-  const anyLoading = apptLoad || rxLoad
-
-  // Prefer JWT name (available immediately) over patient API call
-  const displayName = user?.first_name ?? patient?.first_name ?? null
-
-  const stats = [
-    { label: 'Upcoming Visits',    value: upcoming.length,       icon: '📅', color: '#6366f1' },
-    { label: 'Active Medications', value: prescriptions.length,  icon: '💊', color: '#0d9488' },
-    { label: 'Pending Refills',    value: pending,               icon: '🔄', color: '#d97706' },
-  ]
+  // derived
+  const upcoming    = appointments.filter(a => !['completed','cancelled'].includes(a.status?.toLowerCase()))
+  const pendingRx   = refillReqs.filter(r => r.status?.toLowerCase() === 'pending').length
+  const unread      = threads.reduce((s, t) => s + (Number(t.unread_count) || 0), 0)
+  const activeMeds  = prescriptions.length
 
   if (!patientId) {
     return (
@@ -262,10 +236,10 @@ export default function PatientPortalDashboard() {
 
       <div className="flex flex-col gap-6">
 
-        {/* ── welcome ── */}
+        {/* greeting */}
         <div>
           <h1 className="text-2xl font-bold mb-0.5" style={{ color: 'var(--text-h)' }}>
-            {greeting()}, {displayName ?? 'there'} 👋
+            {greeting()}, {displayName ?? patient?.first_name ?? 'there'} 👋
           </h1>
           <p className="text-sm" style={{ color: 'var(--text)' }}>
             {new Intl.DateTimeFormat('en-US', {
@@ -277,69 +251,131 @@ export default function PatientPortalDashboard() {
           </p>
         </div>
 
-        {/* ── stat cards ── */}
-        <div className="grid grid-cols-3 gap-4">
-          {stats.map(s => (
-            <StatCard key={s.label} loading={anyLoading || refillLoad} {...s} />
-          ))}
+        {/* stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatCard label="Upcoming Visits"    value={upcoming.length}  icon="📅" color="#6366f1" loading={loading} />
+          <StatCard label="Active Medications" value={activeMeds}        icon="💊" color="#0d9488" loading={rxLoading} />
+          <StatCard label="Pending Refills"    value={pendingRx}         icon="🔄" color="#d97706" loading={loading} />
+          <StatCard label="Unread Messages"    value={unread}            icon="💬" color="#2563eb" loading={loading} />
         </div>
 
-        {/* ── two-column layout on desktop ── */}
+        {/* two-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-          {/* left column: appointments + refills (3/5) */}
+          {/* left: upcoming appointments */}
           <div className="lg:col-span-3 flex flex-col gap-6">
-            <Section
-              title="Upcoming Appointments"
-              count={upcoming.length}
-              loading={apptLoad}>
-              <AppointmentList
-                appointments={upcoming}
-                loading={apptLoad}
-                error={apptError}
-              />
-            </Section>
+            <SectionCard title="Upcoming Appointments">
+              {loading ? (
+                <div className="flex items-center gap-2 py-3" style={{ color: 'var(--text)' }}>
+                  <Spinner /> Loading…
+                </div>
+              ) : upcoming.length === 0 ? (
+                <Empty text="No upcoming appointments." />
+              ) : (
+                <div className="flex flex-col divide-y" style={{ borderColor: 'var(--border)' }}>
+                  {upcoming.slice(0, 5).map(a => {
+                    const m = statusMeta(a.status)
+                    return (
+                      <div key={a.id} className="py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-h)' }}>
+                            {a.reason ?? 'Visit'}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--text)' }}>
+                            {fmtDate(a.appointment_date)} · {fmtTime(a.appointment_date)}
+                            {a.doctor_name && ` · Dr. ${a.doctor_name}`}
+                          </p>
+                        </div>
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ background: m.bg, color: m.color }}>
+                          {m.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </SectionCard>
 
-            {!apptLoad && past.length > 0 && (
-              <Section
-                title="Past Appointments"
-                count={past.length}
-                loading={apptLoad}>
-                <AppointmentList
-                  appointments={past}
-                  loading={false}
-                  error={null}
-                />
-              </Section>
-            )}
-
-            <Section
-              title="Refill Requests"
-              count={refillReqs.length}
-              loading={refillLoad}>
-              <RefillList
-                refillRequests={refillReqs}
-                loading={refillLoad}
-                error={refillError}
-              />
-            </Section>
+            {/* recent refill requests */}
+            <SectionCard title="Refill Requests">
+              {loading ? (
+                <div className="flex items-center gap-2 py-3" style={{ color: 'var(--text)' }}>
+                  <Spinner /> Loading…
+                </div>
+              ) : refillReqs.length === 0 ? (
+                <Empty text="No refill requests yet." />
+              ) : (
+                <div className="flex flex-col divide-y" style={{ borderColor: 'var(--border)' }}>
+                  {refillReqs.slice(0, 5).map(r => {
+                    const s = r.status?.toLowerCase()
+                    const color = s === 'approved' ? '#059669' : s === 'denied' ? '#dc2626' : '#d97706'
+                    const bg    = s === 'approved' ? 'rgba(16,185,129,0.10)' : s === 'denied' ? 'rgba(220,38,38,0.08)' : 'rgba(245,158,11,0.10)'
+                    return (
+                      <div key={r.id} className="py-3 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-h)' }}>{r.medication_name}</p>
+                          <p className="text-xs" style={{ color: 'var(--text)' }}>{r.dosage}</p>
+                        </div>
+                        <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{ background: bg, color }}>
+                          {r.status}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </SectionCard>
           </div>
 
-          {/* right column: prescriptions (2/5) */}
+          {/* right: prescriptions */}
           <div className="lg:col-span-2">
-            <Section
-              title="My Prescriptions"
-              count={prescriptions.length}
-              loading={rxLoad}>
-              <PrescriptionList
-                prescriptions={prescriptions}
-                loading={rxLoad}
-                error={rxError}
-                requestedIds={requestedIds}
-                loadingIds={loadingIds}
-                onRequestRefill={handleRequestRefill}
-              />
-            </Section>
+            <SectionCard title="My Prescriptions">
+              {rxLoading ? (
+                <div className="flex items-center gap-2 py-3" style={{ color: 'var(--text)' }}>
+                  <Spinner /> Loading…
+                </div>
+              ) : prescriptions.length === 0 ? (
+                <Empty text="No prescriptions on file." />
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {prescriptions.map(rx => {
+                    const isPending  = requestedIds.has(rx.id)
+                    const isLoading  = loadingIds.has(rx.id)
+                    return (
+                      <div key={rx.id} className="p-3 rounded-xl border flex flex-col gap-2"
+                        style={{ borderColor: 'var(--border)', background: '#f8fafc' }}>
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: 'var(--text-h)' }}>
+                            {rx.medication_name}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: '#0d9488' }}>{rx.dosage}</p>
+                          {rx.instructions && (
+                            <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text)' }}>
+                              {rx.instructions}
+                            </p>
+                          )}
+                        </div>
+                        {rx.refill_allowed && (
+                          <button
+                            disabled={isPending || isLoading}
+                            onClick={() => handleRequestRefill(rx.id)}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg text-white self-start"
+                            style={{
+                              background: isPending ? '#6b7280' : '#0d9488',
+                              opacity:    (isPending || isLoading) ? 0.7 : 1,
+                              cursor:     (isPending || isLoading) ? 'not-allowed' : 'pointer',
+                            }}>
+                            {isLoading ? 'Requesting…' : isPending ? '✓ Requested' : 'Request Refill'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </SectionCard>
           </div>
 
         </div>

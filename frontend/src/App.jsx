@@ -34,6 +34,9 @@ import DoctorRefills   from './pages/doctor/Refills'
 
 // ─── patient portal pages ────────────────────────────────────────────────────
 import PatientPortalDashboard from './pages/patient/Dashboard'
+import PatientAppointments    from './pages/patient/Appointments'
+import PatientPrescriptions   from './pages/patient/Prescriptions'
+import PatientProfile         from './pages/patient/Profile'
 
 // ─── shared pages ─────────────────────────────────────────────────────────────
 import ChatPage from './pages/chat/ChatPage'
@@ -71,8 +74,11 @@ export default function App() {
       {/* ── patient portal — requires role: patient ── */}
       <Route element={<ProtectedRoute allowedRoles={['patient']} />}>
         <Route path="/patient" element={<PatientLayout />}>
-          <Route index            element={<PatientPortalDashboard />} />
-          <Route path="messages"  element={<ChatPage />} />
+          <Route index                element={<PatientPortalDashboard />} />
+          <Route path="appointments"  element={<PatientAppointments />} />
+          <Route path="prescriptions" element={<PatientPrescriptions />} />
+          <Route path="messages"      element={<ChatPage />} />
+          <Route path="profile"       element={<PatientProfile />} />
         </Route>
       </Route>
 
