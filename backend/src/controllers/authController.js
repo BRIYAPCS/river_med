@@ -153,19 +153,13 @@ async function patientRegister(req, res) {
     )
     const patientId = patientResult.insertId
 
-    // 2. Create the auth user linked to the patient profile
+    // 2. Create the auth user linked to the patient profile via users.patient_id
     const [userResult] = await conn.query(
       `INSERT INTO users (email, phone, password_hash, role, is_verified, is_active, patient_id)
        VALUES (?, ?, ?, 'patient', 0, 1, ?)`,
       [email, phone, passwordHash, patientId]
     )
     const userId = userResult.insertId
-
-    // 3. Write the back-reference so patients.user_id → users.id (1:1)
-    await conn.query(
-      'UPDATE patients SET user_id = ? WHERE id = ?',
-      [userId, patientId]
-    )
 
     await conn.commit()
 
