@@ -16,7 +16,21 @@ const analyticsRouter      = require('./routes/analytics')
 
 const app = express()
 
-app.use(cors())
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// Must be the first middleware so pre-flight OPTIONS requests are handled
+// before any auth checks or route handlers run.
+app.use(cors({
+  origin: [
+    // production Vercel deployment
+    'https://river-med-app.vercel.app',
+    // any Vercel preview URL (branch / PR deploys)
+    /^https:\/\/.*\.vercel\.app$/,
+    // local development
+    'http://localhost:5173',
+    'http://localhost:4173',
+  ],
+  credentials: true,   // allow cookies / Authorization header
+}))
 app.use(express.json())
 
 // request logger
