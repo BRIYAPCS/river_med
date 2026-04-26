@@ -8,17 +8,19 @@
 -- Usage:
 --   mysql -u briya -p river_med < src/db/migrate.sql
 --
--- NOTE: ADD COLUMN IF NOT EXISTS is MariaDB syntax only — not supported in
--- MySQL 8.  Every column/index/FK addition is guarded via a stored procedure
--- that checks INFORMATION_SCHEMA before issuing the ALTER.
+-- Rules applied throughout:
+--   • ADD COLUMN IF NOT EXISTS is MariaDB-only — every column addition is
+--     guarded by an INFORMATION_SCHEMA check inside a stored procedure.
+--   • Every FK references a column whose type is EXACT (INT UNSIGNED) —
+--     MySQL 8.0.16+ enforces strict type compatibility (ERROR 3780 otherwise).
+--   • Procedures drop themselves after use (no persistent objects left behind).
+--   • MODIFY COLUMN and CREATE TABLE IF NOT EXISTS are always idempotent.
 -- =============================================================================
 
 USE river_med;
 
 -- =============================================================================
 -- users — broaden constraints for the new auth model
--- MODIFY COLUMN is idempotent: repeating it on an already-correct column is a
--- no-op in terms of data and produces no error.
 -- =============================================================================
 
 -- Allow email to be NULL (phone-only accounts)
@@ -29,7 +31,7 @@ ALTER TABLE users
 ALTER TABLE users
   MODIFY COLUMN password_hash TEXT NULL;
 
--- ── add phone, is_verified, is_active columns to users ───────────────────────
+-- ── add phone, is_verified, is_active to users ───────────────────────────────
 
 DROP PROCEDURE IF EXISTS _river_users_new_cols;
 DELIMITER $$
@@ -46,7 +48,7 @@ BEGIN
       ADD COLUMN phone VARCHAR(50) NULL AFTER email;
   END IF;
 
-  -- unique index on phone (separate from ADD COLUMN so each can be checked independently)
+  -- unique index on phone — checked separately so each guard is independent
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.STATISTICS
     WHERE table_schema = DATABASE()
@@ -84,7 +86,7 @@ CALL _river_users_new_cols();
 DROP PROCEDURE IF EXISTS _river_users_new_cols;
 
 -- Mark all pre-existing accounts as verified so they can still log in.
--- Safe to repeat: WHERE is_verified = 0 means already-verified rows are untouched.
+-- Safe to repeat: rows already at is_verified = 1 are not touched.
 UPDATE users SET is_verified = 1 WHERE is_verified = 0;
 
 -- =============================================================================
@@ -108,7 +110,7 @@ CREATE TABLE IF NOT EXISTS otp_codes (
 
 -- =============================================================================
 -- messages — read_at for read-receipt tracking
--- NULL = unread. Set to UTC_TIMESTAMP() by the receiver via PUT /:id/read.
+-- NULL = unread; set to UTC_TIMESTAMP() by the receiver via PUT /:id/read.
 -- =============================================================================
 
 DROP PROCEDURE IF EXISTS _river_messages_read_at;
@@ -125,7 +127,7 @@ BEGIN
       ADD COLUMN read_at DATETIME NULL DEFAULT NULL AFTER body;
   END IF;
 
-  -- Index so "unread for doctor/patient" queries stay fast
+  -- Index so "unread count" queries stay fast
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.STATISTICS
     WHERE table_schema = DATABASE()
@@ -141,14 +143,108 @@ CALL _river_messages_read_at();
 DROP PROCEDURE IF EXISTS _river_messages_read_at;
 
 -- =============================================================================
--- appointments — make doctor_id nullable
--- Allows patients to submit requests before a doctor is assigned.
--- Admin assigns later via PUT /api/appointments/:id/assign.
--- MODIFY COLUMN is idempotent.
+-- appointments — fix FK type mismatch + make doctor_id nullable
+--
+-- MySQL 8.0.16+ enforces that referencing and referenced columns are type-
+-- identical (ERROR 3780). If the live DB has doctor_id or patient_id as signed
+-- INT while doctors.id / patients.id are INT UNSIGNED, any ALTER involving
+-- those FKs will fail.
+--
+-- Strategy for each column:
+--   1. Look up the auto-generated FK constraint name from INFORMATION_SCHEMA.
+--   2. Drop it (dynamic SQL because the name is unknown at write time).
+--   3. MODIFY the column to the exact unsigned type.
+--   4. Re-add a named FK only if none is present.
 -- =============================================================================
 
-ALTER TABLE appointments
-  MODIFY COLUMN doctor_id INT UNSIGNED NULL;
+DROP PROCEDURE IF EXISTS _river_fix_appointments_fks;
+DELIMITER $$
+CREATE PROCEDURE _river_fix_appointments_fks()
+BEGIN
+  DECLARE v_fk VARCHAR(255) DEFAULT NULL;
+
+  -- NOT FOUND fires when SELECT … INTO finds zero rows; set the variable to
+  -- NULL so the IF v_fk IS NOT NULL guard below skips the DROP safely.
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fk = NULL;
+
+  -- ── doctor_id ──────────────────────────────────────────────────────────────
+
+  -- Step 1: find existing FK (constraint name varies by install)
+  SELECT CONSTRAINT_NAME INTO v_fk
+  FROM information_schema.KEY_COLUMN_USAGE
+  WHERE TABLE_SCHEMA          = DATABASE()
+    AND TABLE_NAME            = 'appointments'
+    AND COLUMN_NAME           = 'doctor_id'
+    AND REFERENCED_TABLE_NAME IS NOT NULL
+  LIMIT 1;
+
+  -- Step 2: drop it so the MODIFY below is not blocked
+  IF v_fk IS NOT NULL THEN
+    SET @drop_sql = CONCAT('ALTER TABLE appointments DROP FOREIGN KEY `', v_fk, '`');
+    PREPARE _stmt FROM @drop_sql;
+    EXECUTE _stmt;
+    DEALLOCATE PREPARE _stmt;
+    SET v_fk = NULL;
+  END IF;
+
+  -- Step 3: set exact type — INT UNSIGNED NULL matches doctors.id INT UNSIGNED
+  ALTER TABLE appointments
+    MODIFY COLUMN doctor_id INT UNSIGNED NULL;
+
+  -- Step 4: re-add named FK only if none exists for this column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA          = DATABASE()
+      AND TABLE_NAME            = 'appointments'
+      AND COLUMN_NAME           = 'doctor_id'
+      AND REFERENCED_TABLE_NAME IS NOT NULL
+  ) THEN
+    -- ON DELETE SET NULL: removing a doctor nulls the slot, not the appointment
+    ALTER TABLE appointments
+      ADD CONSTRAINT fk_appt_doctor
+        FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL;
+  END IF;
+
+  -- ── patient_id ─────────────────────────────────────────────────────────────
+
+  -- Step 1: find existing FK
+  SELECT CONSTRAINT_NAME INTO v_fk
+  FROM information_schema.KEY_COLUMN_USAGE
+  WHERE TABLE_SCHEMA          = DATABASE()
+    AND TABLE_NAME            = 'appointments'
+    AND COLUMN_NAME           = 'patient_id'
+    AND REFERENCED_TABLE_NAME IS NOT NULL
+  LIMIT 1;
+
+  -- Step 2: drop it
+  IF v_fk IS NOT NULL THEN
+    SET @drop_sql = CONCAT('ALTER TABLE appointments DROP FOREIGN KEY `', v_fk, '`');
+    PREPARE _stmt FROM @drop_sql;
+    EXECUTE _stmt;
+    DEALLOCATE PREPARE _stmt;
+    SET v_fk = NULL;
+  END IF;
+
+  -- Step 3: set exact type — INT UNSIGNED NOT NULL matches patients.id INT UNSIGNED
+  ALTER TABLE appointments
+    MODIFY COLUMN patient_id INT UNSIGNED NOT NULL;
+
+  -- Step 4: re-add named FK only if none exists for this column
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA          = DATABASE()
+      AND TABLE_NAME            = 'appointments'
+      AND COLUMN_NAME           = 'patient_id'
+      AND REFERENCED_TABLE_NAME IS NOT NULL
+  ) THEN
+    ALTER TABLE appointments
+      ADD CONSTRAINT fk_appt_patient
+        FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE;
+  END IF;
+END$$
+DELIMITER ;
+CALL _river_fix_appointments_fks();
+DROP PROCEDURE IF EXISTS _river_fix_appointments_fks;
 
 -- =============================================================================
 -- patients — user_id back-reference + name columns
@@ -158,7 +254,7 @@ DROP PROCEDURE IF EXISTS _river_patients_new_cols;
 DELIMITER $$
 CREATE PROCEDURE _river_patients_new_cols()
 BEGIN
-  -- user_id: direct link patient → user row
+  -- user_id: direct link patient → user row; INT UNSIGNED NULL matches users.id
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.COLUMNS
     WHERE table_schema = DATABASE()
