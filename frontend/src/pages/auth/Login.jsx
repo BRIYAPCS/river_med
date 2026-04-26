@@ -62,25 +62,143 @@ const labelStyle = {
 }
 
 // ─── IdentifierField ──────────────────────────────────────────────────────────
-// Single text field for email or phone number.
-// Email is the primary login method. If the user registered a phone number they
-// can also type it here (with country code, e.g. +12025551234).
+// Auto-detects email vs phone as the user types.
+//   • starts with a digit → phone mode: country-code selector slides in,
+//     value sent to API = dialCode + local digits (e.g. "+503 7890-1234" → "+50378901234")
+//   • contains '@'        → email mode: plain input, value sent as-is
+//   • empty / other       → idle: plain input, wide placeholder
+
+const DEFAULT_DIAL = '+503'
+
+const DIAL_CODES = [
+  { dial: '+503', flag: '🇸🇻', name: 'El Salvador'   },
+  { dial: '+1',   flag: '🇺🇸', name: 'USA / Canada'  },
+  { dial: '+52',  flag: '🇲🇽', name: 'México'        },
+  { dial: '+502', flag: '🇬🇹', name: 'Guatemala'     },
+  { dial: '+504', flag: '🇭🇳', name: 'Honduras'      },
+  { dial: '+505', flag: '🇳🇮', name: 'Nicaragua'     },
+  { dial: '+506', flag: '🇨🇷', name: 'Costa Rica'    },
+  { dial: '+507', flag: '🇵🇦', name: 'Panamá'        },
+  { dial: '+34',  flag: '🇪🇸', name: 'España'        },
+  { dial: '+44',  flag: '🇬🇧', name: 'UK'            },
+  { dial: '+49',  flag: '🇩🇪', name: 'Germany'       },
+  { dial: '+33',  flag: '🇫🇷', name: 'France'        },
+  { dial: '+39',  flag: '🇮🇹', name: 'Italy'         },
+  { dial: '+55',  flag: '🇧🇷', name: 'Brazil'        },
+  { dial: '+54',  flag: '🇦🇷', name: 'Argentina'     },
+  { dial: '+57',  flag: '🇨🇴', name: 'Colombia'      },
+  { dial: '+56',  flag: '🇨🇱', name: 'Chile'         },
+  { dial: '+51',  flag: '🇵🇪', name: 'Perú'          },
+  { dial: '+91',  flag: '🇮🇳', name: 'India'         },
+  { dial: '+86',  flag: '🇨🇳', name: 'China'         },
+  { dial: '+81',  flag: '🇯🇵', name: 'Japan'         },
+  { dial: '+82',  flag: '🇰🇷', name: 'South Korea'   },
+  { dial: '+61',  flag: '🇦🇺', name: 'Australia'     },
+  { dial: '+64',  flag: '🇳🇿', name: 'New Zealand'   },
+]
+
+// 'phone' when starts with a digit, 'email' when contains @, 'idle' otherwise
+function detectInputMode(raw) {
+  if (!raw) return 'idle'
+  if (raw.includes('@')) return 'email'
+  if (/^\d/.test(raw)) return 'phone'
+  return 'idle'
+}
 
 function IdentifierField({ value, onChange, autoFocus = false }) {
+  const [text,     setText]     = useState(value ?? '')
+  const [dialCode, setDialCode] = useState(DEFAULT_DIAL)
+
+  const mode = detectInputMode(text)
+
+  // Compose the value the API actually receives:
+  //   phone → dialCode + digits only (strips spaces/dashes)
+  //   email / idle → raw text
+  function compose(raw, code) {
+    return detectInputMode(raw) === 'phone'
+      ? code + raw.replace(/[^\d]/g, '')
+      : raw
+  }
+
+  function handleText(raw) {
+    setText(raw)
+    onChange(compose(raw, dialCode))
+  }
+
+  function handleDial(code) {
+    setDialCode(code)
+    if (mode === 'phone') onChange(compose(text, code))
+  }
+
+  const hintText =
+    mode === 'phone' ? `Will send as: ${dialCode}${text.replace(/[^\d]/g, '')}` :
+    mode === 'email' ? 'Signing in with email address' :
+    'Type your email, or start with a digit to enter a phone number'
+
   return (
     <div>
       <label style={labelStyle}>Email or phone number</label>
-      <input
-        type="text"
-        required
-        autoFocus={autoFocus}
-        placeholder="you@example.com or +1 555 000 1234"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        style={inputStyle}
-      />
-      <p className="text-xs mt-1" style={{ color: 'var(--text)' }}>
-        Phone login is available only if you added a phone number during sign-up.
+
+      {/* Unified border box — select + input share one container */}
+      <div style={{
+        display:      'flex',
+        alignItems:   'stretch',
+        border:       '1px solid var(--border)',
+        borderRadius: 12,
+        background:   '#f8fafc',
+        overflow:     'hidden',
+      }}>
+        {/* Country-code selector — only visible in phone mode */}
+        {mode === 'phone' && (
+          <select
+            value={dialCode}
+            onChange={e => handleDial(e.target.value)}
+            title="Country dial code"
+            style={{
+              border:      'none',
+              borderRight: '1px solid var(--border)',
+              background:  'transparent',
+              padding:     '10px 8px',
+              fontSize:    13,
+              cursor:      'pointer',
+              outline:     'none',
+              color:       'var(--text-h)',
+              flexShrink:  0,
+            }}
+          >
+            {DIAL_CODES.map(c => (
+              <option key={c.dial} value={c.dial}>
+                {c.flag}  {c.dial}  {c.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <input
+          type={mode === 'phone' ? 'tel' : 'text'}
+          inputMode={mode === 'phone' ? 'numeric' : 'email'}
+          required
+          autoFocus={autoFocus}
+          placeholder={mode === 'phone' ? '7890-1234' : 'you@example.com'}
+          value={text}
+          onChange={e => handleText(e.target.value)}
+          style={{
+            flex:       1,
+            border:     'none',
+            background: 'transparent',
+            padding:    '10px 14px',
+            fontSize:   14,
+            color:      'var(--text-h)',
+            outline:    'none',
+            minWidth:   0,
+          }}
+        />
+      </div>
+
+      {/* Contextual hint below the field */}
+      <p className="text-xs mt-1 transition-all"
+        style={{ color: mode === 'phone' ? 'var(--primary)' : 'var(--text)' }}>
+        {hintText}
       </p>
     </div>
   )
