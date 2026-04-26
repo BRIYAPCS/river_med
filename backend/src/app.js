@@ -21,19 +21,28 @@ const app = express()
 app.use(helmet())
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
-// Must be the first middleware so pre-flight OPTIONS requests are handled
-// before any auth checks or route handlers run.
+// Placed before all routes so OPTIONS pre-flight requests are handled first.
+const allowedOrigins = [
+  'https://river-med-app.vercel.app',
+  'http://localhost:5173',   // Vite dev
+  'http://localhost:4173',   // Vite preview
+]
+
 app.use(cors({
-  origin: [
-    // production Vercel deployment
-    'https://river-med-app.vercel.app',
-    // any Vercel preview URL (branch / PR deploys)
-    /^https:\/\/.*\.vercel\.app$/,
-    // local development
-    'http://localhost:5173',
-    'http://localhost:4173',
-  ],
-  credentials: true,   // allow cookies / Authorization header
+  origin: function (origin, callback) {
+    // Allow requests with no origin: mobile apps, curl, Postman, server-to-server
+    if (!origin) return callback(null, true)
+
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app')
+    ) {
+      return callback(null, true)
+    }
+
+    return callback(new Error('Not allowed by CORS'))
+  },
+  credentials: true,   // forward Authorization header and cookies
 }))
 app.use(express.json())
 
