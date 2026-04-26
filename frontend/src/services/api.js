@@ -1,6 +1,6 @@
-// In dev, Vite's proxy forwards /api → http://localhost:4000.
-// In production, nginx does the same. No hardcoded host needed.
-const API_BASE = '/api'
+// Dev:  VITE_API_BASE is empty → Vite proxy forwards /api → http://localhost:4000
+// Prod: VITE_API_BASE=https://briya-api.duckdns.org/api/river (set in .env.production)
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
 
 // ─── auth token helper ────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ async function request(method, path, body) {
   } catch (networkErr) {
     // fetch itself threw — server unreachable, no internet, CORS preflight blocked, etc.
     console.error(`[API] Network error on ${method} ${url}:`, networkErr.message)
-    throw new Error(`Cannot reach the server. Check that the backend is running on port 4000.`)
+    throw new Error(`Cannot reach the server (${url}). Check your connection or try again.`)
   }
 
   // try to parse JSON body regardless of status (backend often sends {error:"..."})
