@@ -328,3 +328,90 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   INDEX idx_prt_user    (user_id),
   INDEX idx_prt_expires (expires_at)
 ) ENGINE=InnoDB;
+
+-- =============================================================================
+-- TIER 1 FEATURES
+-- =============================================================================
+
+-- ── appointments.notes — doctor writes clinical notes on visit completion ─────
+
+DROP PROCEDURE IF EXISTS _river_appt_notes;
+DELIMITER $$
+CREATE PROCEDURE _river_appt_notes()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE table_schema = DATABASE()
+      AND table_name   = 'appointments'
+      AND column_name  = 'notes'
+  ) THEN
+    ALTER TABLE appointments ADD COLUMN notes TEXT NULL AFTER status;
+  END IF;
+END$$
+DELIMITER ;
+CALL _river_appt_notes();
+DROP PROCEDURE IF EXISTS _river_appt_notes;
+
+-- ── patient_allergies ─────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS patient_allergies (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  patient_id INT UNSIGNED NOT NULL,
+  allergen   VARCHAR(255) NOT NULL,
+  severity   ENUM('mild','moderate','severe') NOT NULL DEFAULT 'mild',
+  reaction   VARCHAR(500) NULL,
+  notes      TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+  INDEX idx_pa_patient (patient_id)
+) ENGINE=InnoDB;
+
+-- ── patient_conditions ────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS patient_conditions (
+  id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  patient_id   INT UNSIGNED NOT NULL,
+  name         VARCHAR(255) NOT NULL,
+  status       ENUM('active','chronic','resolved') NOT NULL DEFAULT 'active',
+  diagnosed_at DATE NULL,
+  notes        TEXT NULL,
+  created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+  INDEX idx_pc_patient (patient_id)
+) ENGINE=InnoDB;
+
+-- ── patient_medications — existing meds (outside our Rx system) ───────────────
+
+CREATE TABLE IF NOT EXISTS patient_medications (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  patient_id INT UNSIGNED NOT NULL,
+  name       VARCHAR(255) NOT NULL,
+  dosage     VARCHAR(255) NULL,
+  frequency  VARCHAR(255) NULL,
+  started_at DATE NULL,
+  is_active  TINYINT(1) NOT NULL DEFAULT 1,
+  notes      TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
+  INDEX idx_pm_patient (patient_id)
+) ENGINE=InnoDB;
+
+-- ── appointment_vitals ────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS appointment_vitals (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  appointment_id INT UNSIGNED NOT NULL UNIQUE,
+  weight_kg      DECIMAL(5,2) NULL,
+  height_cm      DECIMAL(5,1) NULL,
+  bp_systolic    SMALLINT UNSIGNED NULL,
+  bp_diastolic   SMALLINT UNSIGNED NULL,
+  heart_rate     SMALLINT UNSIGNED NULL,
+  temperature_c  DECIMAL(4,1) NULL,
+  oxygen_sat     TINYINT UNSIGNED NULL,
+  recorded_by    INT UNSIGNED NULL,
+  notes          TEXT NULL,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+  FOREIGN KEY (recorded_by)    REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;

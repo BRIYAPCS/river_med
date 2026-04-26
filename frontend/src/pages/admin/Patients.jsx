@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getPatients, getDoctors, adminCreateStaff } from '../../services/api'
+import { getPatients, getDoctors, adminCreateStaff, adminListUsers, adminUpdateUser, adminToggleUserStatus, adminVerifyUser } from '../../services/api'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -199,8 +199,10 @@ export default function AdminPatients() {
   const [tab,            setTab]            = useState('patients')
   const [patients,       setPatients]       = useState([])
   const [doctors,        setDoctors]        = useState([])
+  const [users,          setUsers]          = useState([])
   const [loadingP,       setLoadingP]       = useState(true)
   const [loadingD,       setLoadingD]       = useState(true)
+  const [loadingU,       setLoadingU]       = useState(true)
   const [search,         setSearch]         = useState('')
   const [selected,       setSelected]       = useState(null)
   const [showDoctorForm, setShowDoctorForm] = useState(false)
@@ -216,7 +218,12 @@ export default function AdminPatients() {
     getDoctors().then(setDoctors).catch(() => {}).finally(() => setLoadingD(false))
   }, [])
 
-  useEffect(() => { loadPatients(); loadDoctors() }, [loadPatients, loadDoctors])
+  const loadUsers = useCallback(async () => {
+    setLoadingU(true)
+    adminListUsers().then(setUsers).catch(() => {}).finally(() => setLoadingU(false))
+  }, [])
+
+  useEffect(() => { loadPatients(); loadDoctors(); loadUsers() }, [loadPatients, loadDoctors, loadUsers])
 
   useEffect(() => {
     if (!toast) return
@@ -266,7 +273,11 @@ export default function AdminPatients() {
 
         {/* tabs */}
         <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: '#f1f5f9' }}>
-          {[['patients', `Patients (${patients.length})`], ['doctors', `Doctors (${doctors.length})`]].map(([key, label]) => (
+          {[
+            ['patients', `Patients (${patients.length})`],
+            ['doctors',  `Doctors (${doctors.length})`],
+            ['users',    `Auth Users (${users.length})`],
+          ].map(([key, label]) => (
             <button key={key} onClick={() => { setTab(key); setSearch(''); setShowDoctorForm(false) }}
               className="px-5 py-1.5 rounded-lg text-sm font-semibold transition-all"
               style={{
@@ -412,6 +423,91 @@ export default function AdminPatients() {
                         </tr>
                       )
                     })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── users tab ── */}
+        {tab === 'users' && (
+          <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+            {loadingU ? (
+              <div className="flex items-center justify-center gap-2 py-12" style={{ color: 'var(--text)' }}>
+                <Spinner /> Loading users…
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', background: '#f8fafc' }}>
+                      {['User', 'Role', 'Status', 'Verified', 'Actions'].map(h => (
+                        <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide"
+                          style={{ color: 'var(--text)' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.filter(u => {
+                      const q = search.toLowerCase()
+                      return !q || u.email?.toLowerCase().includes(q) || u.full_name?.toLowerCase().includes(q) || u.role?.includes(q)
+                    }).map((u, i, arr) => (
+                      <tr key={u.id} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                        <td className="px-4 py-3">
+                          <div className="font-medium" style={{ color: 'var(--text-h)' }}>{u.full_name || '—'}</div>
+                          <div className="text-xs" style={{ color: 'var(--text)' }}>{u.email ?? u.phone}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full capitalize"
+                            style={{
+                              background: u.role === 'admin' ? 'rgba(99,102,241,0.1)' : u.role === 'doctor' ? 'rgba(13,148,136,0.1)' : 'rgba(30,58,138,0.08)',
+                              color:      u.role === 'admin' ? '#6366f1'              : u.role === 'doctor' ? '#0d9488'              : 'var(--primary)',
+                            }}>
+                            {u.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-semibold" style={{ color: u.is_active ? '#059669' : '#dc2626' }}>
+                            {u.is_active ? 'Active' : 'Deactivated'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-semibold" style={{ color: u.is_verified ? '#059669' : '#d97706' }}>
+                            {u.is_verified ? '✓ Verified' : '⚠ Pending'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            {!u.is_verified && (
+                              <button
+                                onClick={async () => {
+                                  await adminVerifyUser(u.id)
+                                  setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_verified: 1 } : x))
+                                  setToast({ message: 'User verified.', type: 'success' })
+                                }}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg"
+                                style={{ background: 'rgba(16,185,129,0.1)', color: '#059669' }}>
+                                Verify
+                              </button>
+                            )}
+                            <button
+                              onClick={async () => {
+                                const res = await adminToggleUserStatus(u.id)
+                                setUsers(prev => prev.map(x => x.id === u.id ? { ...x, is_active: res.is_active } : x))
+                                setToast({ message: res.message, type: 'success' })
+                              }}
+                              className="text-xs font-semibold px-2.5 py-1 rounded-lg"
+                              style={{
+                                background: u.is_active ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.1)',
+                                color:      u.is_active ? '#dc2626'              : '#059669',
+                              }}>
+                              {u.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>

@@ -14,6 +14,8 @@ const messagesRouter       = require('./routes/messages')
 const prescriptionsRouter  = require('./routes/prescriptions')
 const refillRequestsRouter = require('./routes/refillRequests')
 const analyticsRouter      = require('./routes/analytics')
+const medicalHistoryRouter = require('./routes/medicalHistory')
+const vitalsRouter         = require('./routes/vitals')
 
 const app = express()
 
@@ -75,6 +77,10 @@ app.use('/api/prescriptions', prescriptionsRouter)
 // GET /pending + PUT /:id/status → doctor or admin (handled in the route file)
 // POST + GET /patient/:id        → any authenticated user
 app.use('/api/refill_requests', refillRequestsRouter)
+
+// ── Tier 1 new routes ─────────────────────────────────────────────────────────
+app.use('/api/medical',                   medicalHistoryRouter)
+app.use('/api/appointments/:id/vitals',   vitalsRouter)
 
 app.get('/', (_req, res) => res.json({ message: 'River Med API running' }))
 

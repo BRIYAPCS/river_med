@@ -267,3 +267,100 @@ export async function markMessageRead(id) {
   if (!id) throw new Error('markMessageRead: id is required')
   return request('PUT', `/messages/${id}/read`)
 }
+
+// ─── patient profile edit ─────────────────────────────────────────────────────
+
+export async function updateMyPatient(data) {
+  return request('PUT', '/patients/me', data)
+}
+
+// ─── appointment visit notes ──────────────────────────────────────────────────
+
+export async function saveAppointmentNotes(id, notes) {
+  if (!id) throw new Error('saveAppointmentNotes: id is required')
+  return request('PUT', `/appointments/${id}/notes`, { notes })
+}
+
+// ─── vitals ───────────────────────────────────────────────────────────────────
+
+export async function getAppointmentVitals(appointmentId) {
+  if (!appointmentId) throw new Error('getAppointmentVitals: appointmentId is required')
+  return request('GET', `/appointments/${appointmentId}/vitals`)
+}
+
+export async function recordAppointmentVitals(appointmentId, data) {
+  if (!appointmentId) throw new Error('recordAppointmentVitals: appointmentId is required')
+  return request('POST', `/appointments/${appointmentId}/vitals`, data)
+}
+
+// ─── medical history — allergies ──────────────────────────────────────────────
+
+export async function getAllergies(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/medical/allergies${q}`)
+}
+export async function createAllergy(data) {
+  return request('POST', '/medical/allergies', data)
+}
+export async function updateAllergy(id, data) {
+  if (!id) throw new Error('updateAllergy: id is required')
+  return request('PUT', `/medical/allergies/${id}`, data)
+}
+export async function deleteAllergy(id) {
+  if (!id) throw new Error('deleteAllergy: id is required')
+  return request('DELETE', `/medical/allergies/${id}`)
+}
+
+// ─── medical history — conditions ─────────────────────────────────────────────
+
+export async function getConditions(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/medical/conditions${q}`)
+}
+export async function createCondition(data) {
+  return request('POST', '/medical/conditions', data)
+}
+export async function updateCondition(id, data) {
+  if (!id) throw new Error('updateCondition: id is required')
+  return request('PUT', `/medical/conditions/${id}`, data)
+}
+export async function deleteCondition(id) {
+  if (!id) throw new Error('deleteCondition: id is required')
+  return request('DELETE', `/medical/conditions/${id}`)
+}
+
+// ─── medical history — current medications ────────────────────────────────────
+
+export async function getMedications(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/medical/medications${q}`)
+}
+export async function createMedication(data) {
+  return request('POST', '/medical/medications', data)
+}
+export async function updateMedication(id, data) {
+  if (!id) throw new Error('updateMedication: id is required')
+  return request('PUT', `/medical/medications/${id}`, data)
+}
+export async function deleteMedication(id) {
+  if (!id) throw new Error('deleteMedication: id is required')
+  return request('DELETE', `/medical/medications/${id}`)
+}
+
+// ─── admin user management ────────────────────────────────────────────────────
+
+export async function adminListUsers() {
+  return request('GET', '/admin/users')
+}
+export async function adminUpdateUser(id, data) {
+  if (!id) throw new Error('adminUpdateUser: id is required')
+  return request('PUT', `/admin/users/${id}`, data)
+}
+export async function adminToggleUserStatus(id) {
+  if (!id) throw new Error('adminToggleUserStatus: id is required')
+  return request('PUT', `/admin/users/${id}/status`)
+}
+export async function adminVerifyUser(id) {
+  if (!id) throw new Error('adminVerifyUser: id is required')
+  return request('PUT', `/admin/users/${id}/verify`)
+}

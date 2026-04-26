@@ -121,6 +121,7 @@ export default function PatientDetail({
   onComplete,
   isStarting   = false,
   isCompleting = false,
+  onOpenVisit  = null,
 }) {
   const [prescriptions, setPrescriptions] = useState([])
   const [rxLoading,     setRxLoading]     = useState(true)
@@ -172,6 +173,15 @@ export default function PatientDetail({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* ── Open Visit Panel button ── */}
+          {onOpenVisit && (isWaiting || isInProgress || isCompleted) && (
+            <button onClick={onOpenVisit}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold border"
+              style={{ borderColor: '#0d9488', color: '#0d9488', background: 'rgba(13,148,136,0.06)' }}>
+              📋 Visit Notes & Vitals
+            </button>
+          )}
+
           {/* ── WAITING: Start button ── */}
           {isWaiting && (
             <button

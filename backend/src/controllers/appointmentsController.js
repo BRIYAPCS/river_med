@@ -337,6 +337,39 @@ async function deleteAppointment(req, res) {
   }
 }
 
+// ─── PUT /api/appointments/:id/notes ─────────────────────────────────────────
+// Doctor saves clinical notes on one of their own appointments.
+// Admin can save notes on any appointment.
+async function saveNotes(req, res) {
+  const { id }              = req.params
+  const { notes }           = req.body
+  const { role, doctor_id } = req.user
+
+  if (notes === undefined) {
+    return res.status(400).json({ error: 'notes is required.' })
+  }
+
+  try {
+    const pool = getPool()
+    const [[appt]] = await pool.query(
+      'SELECT id, doctor_id FROM appointments WHERE id = ?', [id]
+    )
+    if (!appt) return res.status(404).json({ error: `Appointment ${id} not found.` })
+
+    if (role === 'doctor' && Number(appt.doctor_id) !== Number(doctor_id)) {
+      return res.status(403).json({ error: 'You can only add notes to your own appointments.' })
+    }
+
+    await pool.query('UPDATE appointments SET notes = ? WHERE id = ?', [notes, id])
+    const [[updated]] = await pool.query(`${APPOINTMENT_SELECT} WHERE a.id = ?`, [id])
+    broadcastAppointment('appointment_updated', updated)
+    res.json({ message: 'Notes saved.', appointment: updated })
+  } catch (err) {
+    console.error('[appointments] saveNotes:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+}
+
 module.exports = {
   getAppointments,
   getMyAppointments,
@@ -347,4 +380,5 @@ module.exports = {
   assignDoctor,
   updateAppointment,
   deleteAppointment,
+  saveNotes,
 }

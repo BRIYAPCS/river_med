@@ -146,4 +146,55 @@ async function getMyPatient(req, res) {
   }
 }
 
-module.exports = { getPatients, getPatientById, createPatient, getMyPatient }
+// PUT /api/patients/me — patient updates their own profile.
+// Email is intentionally excluded — it is tied to the auth account.
+async function updateMyPatient(req, res) {
+  const { patient_id } = req.user
+  if (!patient_id) {
+    return res.status(404).json({ error: 'No patient profile linked to this account.' })
+  }
+
+  const {
+    first_name, middle_name, last_name, second_last_name,
+    phone, date_of_birth, blood_type,
+  } = req.body
+
+  const VALID_BLOOD = ['A+','A-','B+','B-','AB+','AB-','O+','O-']
+  if (blood_type && !VALID_BLOOD.includes(blood_type)) {
+    return res.status(400).json({ error: `Invalid blood type "${blood_type}".` })
+  }
+
+  try {
+    await getPool().query(
+      `UPDATE patients
+         SET first_name       = COALESCE(?, first_name),
+             middle_name      = ?,
+             last_name        = COALESCE(?, last_name),
+             second_last_name = ?,
+             phone            = ?,
+             date_of_birth    = ?,
+             blood_type       = ?
+       WHERE id = ?`,
+      [
+        first_name       ?? null,
+        middle_name      ?? null,
+        last_name        ?? null,
+        second_last_name ?? null,
+        phone            ?? null,
+        date_of_birth    ?? null,
+        blood_type       ?? null,
+        patient_id,
+      ]
+    )
+
+    const [[updated]] = await getPool().query(
+      'SELECT * FROM patients WHERE id = ?', [patient_id]
+    )
+    res.json({ message: 'Profile updated.', patient: updated })
+  } catch (err) {
+    console.error('[patients] updateMyPatient:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+}
+
+module.exports = { getPatients, getPatientById, createPatient, getMyPatient, updateMyPatient }

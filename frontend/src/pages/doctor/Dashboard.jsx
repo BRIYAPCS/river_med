@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../../context/AuthContext'
 import { getSocket } from '../../services/socket'
 import PatientDetail from '../../features/patients/PatientDetail'
+import VisitPanel from './VisitPanel'
 
 // ─── status helpers ───────────────────────────────────────────────────────────
 
@@ -111,6 +112,7 @@ export default function DoctorDashboard() {
   const { user }                         = useAuth()
   const [appointments, setAppointments]  = useState([])
   const [selectedId,   setSelectedId]    = useState(null)
+  const [visitAppt,    setVisitAppt]     = useState(null)   // appointment open in VisitPanel
   const [loading,      setLoading]       = useState(true)
   const [updatingIds,  setUpdatingIds]   = useState(new Set())
 
@@ -335,11 +337,24 @@ export default function DoctorDashboard() {
               onComplete={()  => handleComplete(selectedAppt.id)}
               isStarting={updatingIds.has(selectedAppt.id)}
               isCompleting={updatingIds.has(selectedAppt.id)}
+              onOpenVisit={() => setVisitAppt(selectedAppt)}
             />
           ) : (
             <EmptyDetail queueLen={activeQueue.length + completedToday.length} loading={loading} />
           )}
         </div>
+
+        {/* ── visit panel modal ── */}
+        {visitAppt && (
+          <VisitPanel
+            appointment={visitAppt}
+            onClose={() => setVisitAppt(null)}
+            onUpdated={updated => {
+              setAppointments(prev => prev.map(a => a.id === updated.id ? updated : a))
+              setVisitAppt(updated)
+            }}
+          />
+        )}
 
       </div>
     </div>

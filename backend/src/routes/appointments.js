@@ -10,6 +10,7 @@ const {
   assignDoctor,
   updateAppointment,
   deleteAppointment,
+  saveNotes,
 } = require('../controllers/appointmentsController')
 
 const router = Router()
@@ -49,5 +50,8 @@ router.put('/:id',                 requireRole('admin'), updateAppointment)
 // Admin   = hard delete
 // Doctor  = 403 (use PUT /:id/status to set cancelled instead)
 router.delete('/:id',              deleteAppointment)
+
+// Doctor/admin saves clinical notes
+router.put('/:id/notes',           requireRole('doctor', 'admin'), saveNotes)
 
 module.exports = router

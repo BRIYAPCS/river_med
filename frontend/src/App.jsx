@@ -44,7 +44,8 @@ import PatientPrescriptions   from './pages/patient/Prescriptions'
 import PatientProfile         from './pages/patient/Profile'
 
 // ─── shared pages ─────────────────────────────────────────────────────────────
-import ChatPage from './pages/chat/ChatPage'
+import ChatPage        from './pages/chat/ChatPage'
+import MedicalHistory  from './pages/shared/MedicalHistory'
 
 export default function App() {
   return (
@@ -87,6 +88,7 @@ export default function App() {
           <Route index                element={<PatientPortalDashboard />} />
           <Route path="appointments"  element={<PatientAppointments />} />
           <Route path="prescriptions" element={<PatientPrescriptions />} />
+          <Route path="history"       element={<MedicalHistory />} />
           <Route path="messages"      element={<ChatPage />} />
           <Route path="profile"       element={<PatientProfile />} />
         </Route>
