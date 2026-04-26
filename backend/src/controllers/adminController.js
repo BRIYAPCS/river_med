@@ -70,4 +70,27 @@ async function createStaffUser(req, res) {
   }
 }
 
-module.exports = { createStaffUser }
+// ── PUT /api/admin/users/:id/verify ──────────────────────────────────────────
+// Admin-only: manually mark a user as verified.
+// Use this when a patient registered but their OTP email never arrived
+// (e.g. Resend test-sender restriction, spam filter, wrong address).
+
+async function verifyUser(req, res) {
+  const { id } = req.params
+  try {
+    const pool = getPool()
+    const [[user]] = await pool.query(
+      'SELECT id, email, is_verified FROM users WHERE id = ?', [id]
+    )
+    if (!user) return res.status(404).json({ error: `User ${id} not found.` })
+    if (user.is_verified) return res.json({ message: 'Already verified.', user })
+
+    await pool.query('UPDATE users SET is_verified = 1 WHERE id = ?', [id])
+    res.json({ message: `User ${id} (${user.email}) marked as verified.` })
+  } catch (err) {
+    console.error('[admin] verifyUser:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+}
+
+module.exports = { createStaffUser, verifyUser }

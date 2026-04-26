@@ -170,11 +170,16 @@ async function patientRegister(req, res) {
 
     await conn.commit()
 
-    // Send OTP via email for account verification
-    await createAndSendOtp(userId, email, 'email', 'register')
+    // Send OTP — runs outside the transaction so a delivery failure never
+    // rolls back the user account. Code is always printed to PM2 logs.
+    try {
+      await createAndSendOtp(userId, email, 'email', 'register')
+    } catch (emailErr) {
+      console.error('[auth] OTP delivery failed (account still created):', emailErr.message)
+    }
 
     res.status(201).json({
-      message:        `Verification code sent to ${email}.`,
+      message:        `Verification code sent to ${email}. Check your inbox — also check spam.`,
       userId,
       deliveryMethod: 'email',
     })

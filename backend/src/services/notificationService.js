@@ -49,20 +49,21 @@ async function sendEmailReal({ to, subject, html, text }) {
 // ── OTP email ─────────────────────────────────────────────────────────────────
 
 async function sendEmailOtp(email, code) {
-  if (isDev) {
-    // ─ Print to terminal so you can copy-paste during development ─
-    console.log('')
-    console.log(`  ${C.yellow}${C.bold}┌─ OTP EMAIL ──────────────────────────────┐${C.reset}`)
-    console.log(`  ${C.yellow}${C.bold}│${C.reset}  To   : ${email}`)
-    console.log(`  ${C.yellow}${C.bold}│${C.reset}  Code : ${C.bold}${code}${C.reset}`)
-    console.log(`  ${C.yellow}${C.bold}└──────────────────────────────────────────┘${C.reset}`)
-    console.log('')
-    return
-  }
+  // Always log to the server console so admin can find the code in PM2 logs
+  // even when email delivery fails (e.g. Resend test sender restriction).
+  console.log('')
+  console.log(`  ${C.yellow}${C.bold}┌─ OTP EMAIL ──────────────────────────────┐${C.reset}`)
+  console.log(`  ${C.yellow}${C.bold}│${C.reset}  To   : ${email}`)
+  console.log(`  ${C.yellow}${C.bold}│${C.reset}  Code : ${C.bold}${code}${C.reset}`)
+  console.log(`  ${C.yellow}${C.bold}└──────────────────────────────────────────┘${C.reset}`)
+  console.log('')
+
+  if (isDev) return   // dev: console only, no real email
 
   // Production — send via Resend
-  // NOTE: onboarding@resend.dev only delivers to your Resend account email.
-  // Add a verified domain in the Resend dashboard and update EMAIL_FROM for real users.
+  // NOTE: onboarding@resend.dev only delivers to your own Resend account email.
+  // Add a verified domain in https://resend.com/domains and update EMAIL_FROM
+  // in .env so OTPs reach any patient address.
   await sendEmailReal({
     to:      email,
     subject: `${code} is your River Med code`,
