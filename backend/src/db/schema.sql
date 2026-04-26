@@ -10,14 +10,18 @@ USE river_med;
 
 -- ─── patients ─────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS patients (
-  id            INT UNSIGNED     AUTO_INCREMENT PRIMARY KEY,
-  first_name    VARCHAR(100)     NOT NULL,
-  last_name     VARCHAR(100)     NOT NULL,
-  email         VARCHAR(255)     UNIQUE,
-  phone         VARCHAR(30),
-  date_of_birth DATE,
-  blood_type    ENUM('A+','A-','B+','B-','AB+','AB-','O+','O-'),
-  created_at    DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP
+  id               INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  user_id          INT UNSIGNED  NULL UNIQUE,           -- back-ref to users; set after user row created
+  first_name       VARCHAR(100)  NOT NULL,
+  middle_name      VARCHAR(100)  NULL,
+  last_name        VARCHAR(100)  NOT NULL,
+  second_last_name VARCHAR(100)  NULL,
+  email            VARCHAR(255)  UNIQUE,
+  phone            VARCHAR(30),
+  date_of_birth    DATE,
+  blood_type       ENUM('A+','A-','B+','B-','AB+','AB-','O+','O-'),
+  created_at       DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP
+  -- FK to users added after users table is created (see bottom of file)
 ) ENGINE=InnoDB;
 
 -- ─── doctors ──────────────────────────────────────────────────────────────────
@@ -99,6 +103,12 @@ CREATE TABLE IF NOT EXISTS users (
   FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE SET NULL,
   FOREIGN KEY (doctor_id)  REFERENCES doctors(id)  ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- ─── deferred FK: patients.user_id → users.id ────────────────────────────────
+-- Added after the users table so the reference is valid.
+ALTER TABLE patients
+  ADD CONSTRAINT IF NOT EXISTS fk_patient_user
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 -- ─── seed: one doctor so check-in works immediately ──────────────────────────
 INSERT IGNORE INTO doctors (id, first_name, last_name, specialty, email)

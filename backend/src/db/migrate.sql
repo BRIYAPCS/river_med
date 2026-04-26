@@ -52,6 +52,37 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   INDEX idx_expires      (expires_at)
 ) ENGINE=InnoDB;
 
+-- ── patients: add user_id back-reference ─────────────────────────────────────
+-- Enables direct lookup from patient → user without joining through users.
+-- Safe to run on existing data; existing rows get NULL until they re-register.
+
+ALTER TABLE patients
+  ADD COLUMN IF NOT EXISTS user_id     INT UNSIGNED NULL AFTER id,
+  ADD COLUMN IF NOT EXISTS middle_name VARCHAR(100) NULL AFTER first_name,
+  ADD COLUMN IF NOT EXISTS second_last_name VARCHAR(100) NULL AFTER last_name;
+
+-- Add unique index only if it doesn't already exist
+-- (MySQL has no IF NOT EXISTS for indexes; this approach is safe to re-run)
+DROP PROCEDURE IF EXISTS _add_patient_user_idx;
+DELIMITER $$
+CREATE PROCEDURE _add_patient_user_idx()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.STATISTICS
+    WHERE table_schema = DATABASE()
+      AND table_name   = 'patients'
+      AND index_name   = 'idx_patient_user_id'
+  ) THEN
+    ALTER TABLE patients
+      ADD UNIQUE INDEX idx_patient_user_id (user_id),
+      ADD CONSTRAINT fk_patient_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+END$$
+DELIMITER ;
+CALL _add_patient_user_idx();
+DROP PROCEDURE IF EXISTS _add_patient_user_idx;
+
 -- ── password_reset_tokens ─────────────────────────────────────────────────────
 -- Reserved for link-based email reset flows (future implementation).
 -- The current reset flow uses otp_codes with purpose='forgot_password'.

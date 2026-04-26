@@ -161,6 +161,12 @@ async function patientRegister(req, res) {
     )
     const userId = userResult.insertId
 
+    // 3. Write the back-reference so patients.user_id → users.id (1:1)
+    await conn.query(
+      'UPDATE patients SET user_id = ? WHERE id = ?',
+      [userId, patientId]
+    )
+
     await conn.commit()
 
     // Send OTP via email for account verification
