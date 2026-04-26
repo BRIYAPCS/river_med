@@ -44,21 +44,54 @@ async function createPatient(req, res) {
 }
 
 // GET /api/patients/me — returns the authenticated user's own patient profile.
-// Requires a valid JWT (verifyToken middleware); patient_id is read from the token.
+// Resolution order:
+//   1. users.patient_id  (set at registration — fastest path)
+//   2. patients.user_id  (back-reference fallback for older rows)
+//   3. 404 if neither resolves
 async function getMyPatient(req, res) {
-  const patientId = req.user?.patient_id
-  if (!patientId) {
-    return res.status(404).json({ error: 'No patient profile is linked to this account.' })
+  const userId = req.user?.id
+  if (!userId) {
+    return res.status(401).json({ error: 'Authentication required.' })
   }
+
   try {
-    const [[patient]] = await getPool().query(
-      `SELECT
-         id, user_id, first_name, middle_name, last_name, second_last_name,
-         email, phone, date_of_birth, blood_type, created_at
-       FROM patients WHERE id = ?`,
-      [patientId]
+    const pool = getPool()
+
+    // Step 1: read patient_id from users row
+    const [[userRow]] = await pool.query(
+      'SELECT patient_id FROM users WHERE id = ?',
+      [userId]
     )
-    if (!patient) return res.status(404).json({ error: 'Patient profile not found.' })
+
+    let patient = null
+
+    // Step 2: look up by patient_id if present
+    if (userRow?.patient_id) {
+      const [[row]] = await pool.query(
+        `SELECT id, user_id, first_name, middle_name, last_name, second_last_name,
+                email, phone, date_of_birth, blood_type, created_at
+         FROM patients WHERE id = ?`,
+        [userRow.patient_id]
+      )
+      patient = row ?? null
+    }
+
+    // Step 3: fallback — look up by user_id back-reference
+    if (!patient) {
+      const [[row]] = await pool.query(
+        `SELECT id, user_id, first_name, middle_name, last_name, second_last_name,
+                email, phone, date_of_birth, blood_type, created_at
+         FROM patients WHERE user_id = ?`,
+        [userId]
+      )
+      patient = row ?? null
+    }
+
+    // Step 4: nothing found
+    if (!patient) {
+      return res.status(404).json({ error: 'No patient profile linked to this account.' })
+    }
+
     res.json(patient)
   } catch (err) {
     console.error('[patients] getMyPatient:', err.message)
