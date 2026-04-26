@@ -1,4 +1,5 @@
 const express = require('express')
+const helmet  = require('helmet')
 const cors    = require('cors')
 
 const { verifyToken, requireRole } = require('./middleware/authMiddleware')
@@ -15,6 +16,9 @@ const refillRequestsRouter = require('./routes/refillRequests')
 const analyticsRouter      = require('./routes/analytics')
 
 const app = express()
+
+// ── security headers ──────────────────────────────────────────────────────────
+app.use(helmet())
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
 // Must be the first middleware so pre-flight OPTIONS requests are handled
