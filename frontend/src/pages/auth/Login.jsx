@@ -330,7 +330,7 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
           >
             {DIAL_CODES.map(c => (
               <option key={c.dial} value={c.dial}>
-                {c.flag} {c.iso} {c.dial}
+                {c.iso} {c.dial}
               </option>
             ))}
           </select>
