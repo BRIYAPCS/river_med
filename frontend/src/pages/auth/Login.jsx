@@ -310,6 +310,8 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
         <input
           type={mode === 'phone' ? 'tel' : 'text'}
           inputMode={mode === 'phone' ? 'numeric' : 'email'}
+          name="username"
+          autoComplete={mode === 'phone' ? 'tel' : 'email'}
           required
           autoFocus={autoFocus}
           placeholder={mode === 'phone' ? '7890-1234' : 'you@example.com'}
@@ -374,6 +376,8 @@ function PasswordTab({ onSuccess }) {
         </div>
         <input
           type="password"
+          name="password"
+          autoComplete="current-password"
           required
           placeholder="••••••••"
           value={password}
@@ -528,7 +532,7 @@ export default function Login() {
 
   const tabs = [
     { id: 'password', label: 'Password' },
-    { id: 'pin',      label: 'PIN / OTP' },
+    { id: 'pin',      label: 'Phone Number' },
   ]
 
   return (
