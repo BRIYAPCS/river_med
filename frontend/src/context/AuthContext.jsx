@@ -22,12 +22,23 @@ export function AuthProvider({ children }) {
         setUser(JSON.parse(storedUser))
       }
     } catch {
-      // corrupted storage — clear it
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  // Listen for 401 events fired by api.js — auto-logout on expired token
+  useEffect(() => {
+    function handleExpired() {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      setToken(null)
+      setUser(null)
+    }
+    window.addEventListener('auth:expired', handleExpired)
+    return () => window.removeEventListener('auth:expired', handleExpired)
   }, [])
 
   const login = useCallback((newToken, newUser) => {
