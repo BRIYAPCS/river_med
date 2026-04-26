@@ -156,6 +156,21 @@ async function createAppointment(req, res) {
   try {
     const pool = getPool()
 
+    // Prevent double-booking: same doctor cannot have two appointments at the same datetime.
+    // Only checked when a doctor is being assigned at creation time.
+    if (doctor_id) {
+      const [[conflict]] = await pool.query(
+        `SELECT id FROM appointments
+         WHERE doctor_id = ? AND appointment_date = ? AND status != 'cancelled'`,
+        [doctor_id, appointment_date]
+      )
+      if (conflict) {
+        return res.status(409).json({
+          error: 'That doctor already has an appointment at this date and time.',
+        })
+      }
+    }
+
     const [result] = await pool.query(
       `INSERT INTO appointments (patient_id, doctor_id, appointment_date, reason, status)
        VALUES (?, ?, ?, ?, ?)`,
