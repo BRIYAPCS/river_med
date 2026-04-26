@@ -1,0 +1,240 @@
+@import "tailwindcss";
+
+/* =========================
+   ROOT DESIGN SYSTEM
+========================= */
+:root {
+  --text: #6b6375;
+  --text-h: #08060d;
+  --bg: #ffffff;
+  --border: #e5e4e7;
+
+  --primary: #1e3a8a;
+  --primary-light: #3b82f6;
+  --primary-bg: rgba(30, 58, 138, 0.08);
+
+  --accent: #2563eb;
+  --accent-bg: rgba(37, 99, 235, 0.1);
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+
+  --shadow:
+    rgba(0, 0, 0, 0.08) 0 10px 15px -3px,
+    rgba(0, 0, 0, 0.04) 0 4px 6px -2px;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 16px/150% var(--sans);
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #9ca3af;
+    --text-h: #f3f4f6;
+    --bg: #111827;
+    --border: #1f2937;
+    --primary: #3b82f6;
+    --primary-bg: rgba(59, 130, 246, 0.15);
+    --shadow:
+      rgba(0, 0, 0, 0.4) 0 10px 15px -3px,
+      rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--heading);
+  color: var(--text-h);
+  margin: 0;
+}
+
+h1 { font-size: 40px; font-weight: 700; }
+h2 { font-size: 24px; font-weight: 600; }
+p  { margin: 0; }
+
+.card {
+  background: var(--bg);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  padding: 20px;
+}
+
+.button-primary {
+  background: var(--primary);
+  color: white;
+  border-radius: 12px;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+  transition: opacity 0.2s ease;
+}
+.button-primary:hover { opacity: 0.88; }
+
+.badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+@media (max-width: 1024px) {
+  :root { font-size: 15px; }
+  h1    { font-size: 28px; }
+}
+
+/* ── react-big-calendar reset fixes ──────────────────────────────────────────
+   Tailwind's preflight zeroes out box-sizing and list styles, which breaks
+   RBC's internal layout. These rules restore what RBC expects.            */
+.rbc-calendar *,
+.rbc-calendar *::before,
+.rbc-calendar *::after {
+  box-sizing: border-box;
+}
+.rbc-calendar button {
+  cursor: pointer;
+}
+.rbc-toolbar button {
+  font-size: 13px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-h);
+  transition: background 0.15s;
+}
+.rbc-toolbar button:hover {
+  background: #f1f5f9;
+}
+.rbc-toolbar button.rbc-active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.rbc-toolbar button.rbc-active:hover {
+  background: var(--primary);
+  opacity: 0.88;
+}
+.rbc-header {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+  padding: 8px 4px;
+}
+.rbc-today {
+  background: rgba(30, 58, 138, 0.04);
+}
+.rbc-off-range-bg {
+  background: #f9fafb;
+}
+.rbc-event:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* ── react-phone-number-input ────────────────────────────────────────────────
+   Override the library's default styles so the flag + input look like the
+   rest of the app's form fields.                                            */
+.rp-input {
+  display:       flex;
+  align-items:   center;
+  gap:           8px;
+  width:         100%;
+  padding:       10px 14px;
+  border-radius: 12px;
+  border:        1px solid var(--border);
+  background:    #f8fafc;
+  transition:    border-color 0.15s;
+}
+.rp-input:focus-within {
+  border-color: var(--primary);
+  outline: none;
+}
+.rp-input--error {
+  border-color: #fca5a5;
+}
+
+/* Country selector button */
+.rp-input .PhoneInputCountry {
+  display:     flex;
+  align-items: center;
+  gap:         4px;
+  flex-shrink: 0;
+}
+.rp-input .PhoneInputCountrySelect {
+  position:   absolute;
+  top:        0;
+  left:       0;
+  height:     100%;
+  width:      100%;
+  z-index:    1;
+  border:     none;
+  opacity:    0;
+  cursor:     pointer;
+}
+.rp-input .PhoneInputCountrySelectArrow {
+  width:        5px;
+  height:       5px;
+  border-style: solid;
+  border-color: var(--text);
+  border-width: 0 1.5px 1.5px 0;
+  transform:    rotate(45deg);
+  margin-top:   -3px;
+  opacity:      0.55;
+}
+.rp-input .PhoneInputCountryIcon {
+  width:        22px;
+  height:       16px;
+  border-radius: 3px;
+  overflow:     hidden;
+  flex-shrink:  0;
+}
+.rp-input .PhoneInputCountryIcon img,
+.rp-input .PhoneInputCountryIcon svg {
+  width:  100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* The actual number input */
+.rp-input .PhoneInputInput {
+  flex:       1;
+  min-width:  0;
+  background: transparent;
+  border:     none;
+  outline:    none;
+  font-size:  14px;
+  color:      var(--text-h);
+  font-family: var(--sans);
+}
+.rp-input .PhoneInputInput::placeholder {
+  color: #9ca3b0;
+}
