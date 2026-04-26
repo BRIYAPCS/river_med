@@ -23,10 +23,13 @@ import DoctorLayout  from './layouts/DoctorLayout'
 import PatientLayout from './layouts/PatientLayout'
 
 // ─── admin pages ──────────────────────────────────────────────────────────────
-import AdminDashboard  from './pages/admin/Dashboard'
-import AdminRefillDash from './pages/admin/RefillDashboard'
-import AdminAnalytics  from './pages/admin/Analytics'
-import CalendarPage    from './pages/calendar/CalendarPage'
+import AdminDashboard      from './pages/admin/Dashboard'
+import AdminRefillDash     from './pages/admin/RefillDashboard'
+import AdminAnalytics      from './pages/admin/Analytics'
+import AdminQueue          from './pages/admin/Queue'
+import AdminPatients       from './pages/admin/Patients'
+import AdminAppointments   from './pages/admin/Appointments'
+import CalendarPage        from './pages/calendar/CalendarPage'
 
 // ─── doctor pages ─────────────────────────────────────────────────────────────
 import DoctorDashboard      from './pages/doctor/Dashboard'
@@ -57,10 +60,13 @@ export default function App() {
       {/* ── admin portal — requires role: admin ── */}
       <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route path="/admin" element={<AdminLayout />}>
-          <Route index               element={<AdminDashboard />} />
-          <Route path="refills"      element={<AdminRefillDash />} />
-          <Route path="appointments" element={<CalendarPage />} />
-          <Route path="analytics"    element={<AdminAnalytics />} />
+          <Route index                element={<AdminDashboard />} />
+          <Route path="queue"         element={<AdminQueue />} />
+          <Route path="refills"       element={<AdminRefillDash />} />
+          <Route path="patients"      element={<AdminPatients />} />
+          <Route path="appointments"  element={<AdminAppointments />} />
+          <Route path="analytics"     element={<AdminAnalytics />} />
+          <Route path="calendar"      element={<CalendarPage />} />
         </Route>
       </Route>
 

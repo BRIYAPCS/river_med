@@ -3,6 +3,8 @@ import {
   getTodayAppointments,
   getAppointments,
   getPatients,
+  getDoctors,
+  getPendingRefills,
   updateAppointmentStatus,
 } from '../../services/api'
 import { getSocket } from '../../services/socket'
@@ -155,27 +157,32 @@ function AppointmentsTable({ rows, dateCol = 'time', loading, emptyMsg }) {
 // ─── main dashboard ───────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
-  const [todayAppts,   setTodayAppts]   = useState([])   // queue source of truth
-  const [allAppts,     setAllAppts]     = useState([])   // full table below
-  const [patients,     setPatients]     = useState([])
-  const [queueLoading, setQueueLoading] = useState(true)
-  const [tableLoading, setTableLoading] = useState(true)
-  const [updatingIds,  setUpdatingIds]  = useState(new Set())
-  const [advanceError, setAdvanceError] = useState(null)
-  const [showCheckIn,  setShowCheckIn]  = useState(false)
+  const [todayAppts,     setTodayAppts]     = useState([])
+  const [allAppts,       setAllAppts]       = useState([])
+  const [patients,       setPatients]       = useState([])
+  const [doctors,        setDoctors]        = useState([])
+  const [pendingRefills, setPendingRefills] = useState([])
+  const [queueLoading,   setQueueLoading]   = useState(true)
+  const [tableLoading,   setTableLoading]   = useState(true)
+  const [updatingIds,    setUpdatingIds]    = useState(new Set())
+  const [advanceError,   setAdvanceError]   = useState(null)
+  const [showCheckIn,    setShowCheckIn]    = useState(false)
 
-  // ── load all data on mount ──────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     setQueueLoading(true)
     setTableLoading(true)
-    const [today, all, pats] = await Promise.all([
+    const [today, all, pats, docs, refills] = await Promise.all([
       getTodayAppointments().catch(() => []),
       getAppointments().catch(() => []),
       getPatients().catch(() => []),
+      getDoctors().catch(() => []),
+      getPendingRefills().catch(() => []),
     ])
     setTodayAppts(today)
     setAllAppts(all)
     setPatients(pats)
+    setDoctors(docs)
+    setPendingRefills(refills)
     setQueueLoading(false)
     setTableLoading(false)
   }, [])
@@ -257,10 +264,12 @@ export default function AdminDashboard() {
   const historicAll = allAppts.filter(a => !todayIds.has(a.id)).slice(0, 15)
 
   const stats = [
-    { label: "Today's Appointments", value: todayAppts.length,   icon: '📅', color: '#6366f1' },
-    { label: 'Waiting',              value: waiting.length,      icon: '⏳', color: '#d97706' },
-    { label: 'In Progress',          value: inProgress.length,   icon: '🔄', color: '#2563eb' },
-    { label: 'Completed',            value: completed.length,    icon: '✅', color: '#059669' },
+    { label: 'Total Patients',        value: patients.length,       icon: '👥', color: '#6366f1' },
+    { label: 'Total Doctors',         value: doctors.length,        icon: '🩺', color: '#0d9488' },
+    { label: "Today's Appointments",  value: todayAppts.length,     icon: '📅', color: '#3b82f6' },
+    { label: 'Waiting',               value: waiting.length,        icon: '⏳', color: '#d97706' },
+    { label: 'In Progress',           value: inProgress.length,     icon: '🔄', color: '#2563eb' },
+    { label: 'Pending Refills',       value: pendingRefills.length, icon: '💊', color: '#f59e0b' },
   ]
 
   return (
@@ -289,7 +298,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── stat cards ── */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {stats.map(s => (
           <StatCard key={s.label} loading={queueLoading} {...s} />
         ))}
