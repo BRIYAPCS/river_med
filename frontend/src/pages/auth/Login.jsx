@@ -79,30 +79,30 @@ const labelStyle = {
 const DEFAULT_DIAL = '+503'
 
 const DIAL_CODES = [
-  { dial: '+503', flag: '🇸🇻', name: 'El Salvador'  },
-  { dial: '+1',   flag: '🇺🇸', name: 'USA / Canada' },
-  { dial: '+52',  flag: '🇲🇽', name: 'México'       },
-  { dial: '+502', flag: '🇬🇹', name: 'Guatemala'    },
-  { dial: '+504', flag: '🇭🇳', name: 'Honduras'     },
-  { dial: '+505', flag: '🇳🇮', name: 'Nicaragua'    },
-  { dial: '+506', flag: '🇨🇷', name: 'Costa Rica'   },
-  { dial: '+507', flag: '🇵🇦', name: 'Panamá'       },
-  { dial: '+34',  flag: '🇪🇸', name: 'España'       },
-  { dial: '+44',  flag: '🇬🇧', name: 'UK'           },
-  { dial: '+49',  flag: '🇩🇪', name: 'Germany'      },
-  { dial: '+33',  flag: '🇫🇷', name: 'France'       },
-  { dial: '+39',  flag: '🇮🇹', name: 'Italy'        },
-  { dial: '+55',  flag: '🇧🇷', name: 'Brazil'       },
-  { dial: '+54',  flag: '🇦🇷', name: 'Argentina'    },
-  { dial: '+57',  flag: '🇨🇴', name: 'Colombia'     },
-  { dial: '+56',  flag: '🇨🇱', name: 'Chile'        },
-  { dial: '+51',  flag: '🇵🇪', name: 'Perú'         },
-  { dial: '+91',  flag: '🇮🇳', name: 'India'        },
-  { dial: '+86',  flag: '🇨🇳', name: 'China'        },
-  { dial: '+81',  flag: '🇯🇵', name: 'Japan'        },
-  { dial: '+82',  flag: '🇰🇷', name: 'South Korea'  },
-  { dial: '+61',  flag: '🇦🇺', name: 'Australia'    },
-  { dial: '+64',  flag: '🇳🇿', name: 'New Zealand'  },
+  { dial: '+503', flag: '🇸🇻', iso: 'SV', name: 'El Salvador'  },
+  { dial: '+1',   flag: '🇺🇸', iso: 'US', name: 'USA / Canada' },
+  { dial: '+52',  flag: '🇲🇽', iso: 'MX', name: 'México'       },
+  { dial: '+502', flag: '🇬🇹', iso: 'GT', name: 'Guatemala'    },
+  { dial: '+504', flag: '🇭🇳', iso: 'HN', name: 'Honduras'     },
+  { dial: '+505', flag: '🇳🇮', iso: 'NI', name: 'Nicaragua'    },
+  { dial: '+506', flag: '🇨🇷', iso: 'CR', name: 'Costa Rica'   },
+  { dial: '+507', flag: '🇵🇦', iso: 'PA', name: 'Panamá'       },
+  { dial: '+34',  flag: '🇪🇸', iso: 'ES', name: 'España'       },
+  { dial: '+44',  flag: '🇬🇧', iso: 'GB', name: 'UK'           },
+  { dial: '+49',  flag: '🇩🇪', iso: 'DE', name: 'Germany'      },
+  { dial: '+33',  flag: '🇫🇷', iso: 'FR', name: 'France'       },
+  { dial: '+39',  flag: '🇮🇹', iso: 'IT', name: 'Italy'        },
+  { dial: '+55',  flag: '🇧🇷', iso: 'BR', name: 'Brazil'       },
+  { dial: '+54',  flag: '🇦🇷', iso: 'AR', name: 'Argentina'    },
+  { dial: '+57',  flag: '🇨🇴', iso: 'CO', name: 'Colombia'     },
+  { dial: '+56',  flag: '🇨🇱', iso: 'CL', name: 'Chile'        },
+  { dial: '+51',  flag: '🇵🇪', iso: 'PE', name: 'Perú'         },
+  { dial: '+91',  flag: '🇮🇳', iso: 'IN', name: 'India'        },
+  { dial: '+86',  flag: '🇨🇳', iso: 'CN', name: 'China'        },
+  { dial: '+81',  flag: '🇯🇵', iso: 'JP', name: 'Japan'        },
+  { dial: '+82',  flag: '🇰🇷', iso: 'KR', name: 'South Korea'  },
+  { dial: '+61',  flag: '🇦🇺', iso: 'AU', name: 'Australia'    },
+  { dial: '+64',  flag: '🇳🇿', iso: 'NZ', name: 'New Zealand'  },
 ]
 
 // Expected local digit count (without the country prefix) per dial code.
@@ -330,7 +330,7 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
           >
             {DIAL_CODES.map(c => (
               <option key={c.dial} value={c.dial}>
-                {c.flag}  {c.dial}  {c.name}
+                {c.flag} {c.iso} {c.dial}
               </option>
             ))}
           </select>
