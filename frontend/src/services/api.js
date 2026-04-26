@@ -129,20 +129,23 @@ export async function verifyOtp(identifier, code, purpose) {
   }
 }
 
-export async function forgotPassword(identifier) {
+// Accepts email only. Backend returns a generic message regardless of whether
+// the account exists (prevents user enumeration).
+export async function forgotPassword(email) {
   try {
-    return await request('POST', '/auth/forgot-password', { identifier })
+    return await request('POST', '/auth/forgot-password', { email })
   } catch (err) {
     console.error('[API] forgotPassword failed:', err.message)
     throw err
   }
 }
 
-export async function resetPassword(identifier, code, newPassword) {
+// Token-based reset — token comes from the ?token= query param in the reset link.
+export async function resetPasswordWithToken(token, newPassword) {
   try {
-    return await request('POST', '/auth/reset-password', { identifier, code, newPassword })
+    return await request('POST', '/auth/reset-password', { token, newPassword })
   } catch (err) {
-    console.error('[API] resetPassword failed:', err.message)
+    console.error('[API] resetPasswordWithToken failed:', err.message)
     throw err
   }
 }

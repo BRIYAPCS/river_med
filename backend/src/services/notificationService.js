@@ -120,6 +120,50 @@ async function sendPasswordResetEmail(email, code) {
   })
 }
 
+// ── Password reset link email ─────────────────────────────────────────────────
+// Sends a clickable link instead of a 6-digit code.
+// The token is embedded in the URL; the frontend page reads it from ?token=...
+
+async function sendPasswordResetLink(email, resetUrl) {
+  if (isDev) {
+    console.log('')
+    console.log(`  ${C.yellow}${C.bold}┌─ RESET LINK ─────────────────────────────┐${C.reset}`)
+    console.log(`  ${C.yellow}${C.bold}│${C.reset}  To  : ${email}`)
+    console.log(`  ${C.yellow}${C.bold}│${C.reset}  URL : ${C.cyan}${resetUrl}${C.reset}`)
+    console.log(`  ${C.yellow}${C.bold}└──────────────────────────────────────────┘${C.reset}`)
+    console.log('')
+    return
+  }
+
+  await sendEmailReal({
+    to:      email,
+    subject: 'Reset your River Med password',
+    html: `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+        <h2 style="margin:0 0 8px;color:#08060d">Reset your password</h2>
+        <p style="color:#6b6375;margin:0 0 24px">
+          Click the button below to set a new password.
+          This link expires in <strong>15 minutes</strong>.
+        </p>
+        <a href="${resetUrl}"
+           style="display:inline-block;background:#1e3a8a;color:#fff;text-decoration:none;
+                  padding:14px 28px;border-radius:10px;font-weight:700;font-size:15px">
+          Reset Password
+        </a>
+        <p style="color:#6b6375;font-size:12px;margin:24px 0 8px">
+          Or copy this link into your browser:
+        </p>
+        <p style="color:#6b6375;font-size:12px;word-break:break-all;margin:0">
+          ${resetUrl}
+        </p>
+        <p style="color:#9ca3af;font-size:12px;margin:24px 0 0">
+          If you didn't request a password reset, you can safely ignore this email.
+        </p>
+      </div>`,
+    text: `Reset your River Med password:\n\n${resetUrl}\n\nThis link expires in 15 minutes.`,
+  })
+}
+
 // ── SMS ───────────────────────────────────────────────────────────────────────
 // TODO: replace with Twilio when ready.
 //
@@ -147,4 +191,4 @@ async function sendSmsOtp(phone, code) {
   throw new Error('SMS provider not configured. Set TWILIO_* env vars.')
 }
 
-module.exports = { sendSmsOtp, sendEmailOtp, sendPasswordResetEmail }
+module.exports = { sendSmsOtp, sendEmailOtp, sendPasswordResetEmail, sendPasswordResetLink }

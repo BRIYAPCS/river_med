@@ -4,6 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login            from './pages/auth/Login'
 import RegisterPatient  from './pages/auth/RegisterPatient'
 import ForgotPassword   from './pages/auth/ForgotPassword'
+import ResetPassword    from './pages/auth/ResetPassword'
 import Unauthorized     from './pages/auth/Unauthorized'
 import ProtectedRoute   from './components/ProtectedRoute'
 
@@ -45,6 +46,7 @@ export default function App() {
       <Route path="/login"           element={<Login />} />
       <Route path="/register"        element={<RegisterPatient />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password"  element={<ResetPassword />} />
       <Route path="/unauthorized"    element={<Unauthorized />} />
 
       {/* ── admin portal — requires role: admin ── */}

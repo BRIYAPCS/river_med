@@ -2,7 +2,7 @@ const bcrypt  = require('bcryptjs')
 const crypto  = require('crypto')
 const jwt     = require('jsonwebtoken')
 const { getPool } = require('../db/connection')
-const { sendEmailOtp, sendSmsOtp, sendPasswordResetEmail } = require('../services/notificationService')
+const { sendEmailOtp, sendSmsOtp, sendPasswordResetLink } = require('../services/notificationService')
 
 const SALT_ROUNDS  = 12
 const OTP_TTL_MS   = 15 * 60 * 1000   // 15 minutes
@@ -316,73 +316,102 @@ async function verifyOtp(req, res) {
 }
 
 // ── POST /api/auth/forgot-password ────────────────────────────────────────────
-// Sends a reset code via email or SMS. Never reveals whether the account exists.
+// Sends a password-reset link via email.
+// Always returns a generic message — never reveals whether the email exists.
+// Prepares structure for Twilio phone PIN: add an 'sms' branch below when ready.
+
+const FORGOT_GENERIC = 'If an account with that email exists, a reset link was sent.'
+const RESET_TOKEN_TTL_MS = 15 * 60 * 1000   // 15 minutes
 
 async function forgotPassword(req, res) {
-  const identifier = (req.body.identifier ?? '').trim()
+  const email = (req.body.email ?? req.body.identifier ?? '').toLowerCase().trim()
 
-  if (!identifier) return res.status(400).json({ error: 'Email or phone is required.' })
+  if (!email) return res.status(400).json({ error: 'Email is required.' })
 
   try {
-    const user = await findUserByIdentifier(identifier)
+    const pool = getPool()
+    const user = await findUserByIdentifier(email)
 
-    // Always return the same message to prevent user enumeration
-    if (!user || !user.is_active) {
-      return res.json({ message: 'If an account exists, a reset code was sent.' })
+    // Return success regardless — prevents user enumeration via timing
+    if (!user || !user.is_active || !user.email) {
+      return res.json({ message: FORGOT_GENERIC })
     }
 
-    const deliveryMethod = isEmailIdentifier(identifier) ? 'email' : 'sms'
-    await createAndSendOtp(user.id, identifier, deliveryMethod, 'forgot_password')
+    // Invalidate any outstanding reset tokens for this user before issuing a new one
+    await pool.query(
+      `UPDATE password_reset_tokens
+         SET used_at = UTC_TIMESTAMP()
+       WHERE user_id = ? AND used_at IS NULL`,
+      [user.id]
+    )
 
-    res.json({ message: 'Reset code sent. Check your email or phone.' })
+    // Generate a cryptographically random token — store only the SHA-256 hash
+    const rawToken  = require('crypto').randomBytes(32).toString('hex')   // 64-char hex
+    const tokenHash = hashCode(rawToken)
+    const expiresAt = toUtcString(new Date(Date.now() + RESET_TOKEN_TTL_MS))
+
+    await pool.query(
+      `INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+       VALUES (?, ?, ?)`,
+      [user.id, tokenHash, expiresAt]
+    )
+
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')
+    const resetUrl    = `${frontendUrl}/reset-password?token=${rawToken}`
+
+    await sendPasswordResetLink(user.email, resetUrl)
+
+    res.json({ message: FORGOT_GENERIC })
   } catch (err) {
     console.error('[auth] forgotPassword:', err.message)
-    res.status(500).json({ error: 'Could not send reset code. Please try again.' })
+    // Still return success — don't leak server errors to potential attackers
+    res.json({ message: FORGOT_GENERIC })
   }
 }
 
 // ── POST /api/auth/reset-password ─────────────────────────────────────────────
-// Validates the reset OTP and updates the password.
+// Validates the token from the reset link and updates the password.
+// Accepts { token, newPassword } — the token is the raw (unhashed) value from the URL.
 
 async function resetPassword(req, res) {
-  const identifier  = (req.body.identifier  ?? '').trim()
-  const code        = (req.body.code        ?? '').trim()
+  const rawToken    = (req.body.token       ?? '').trim()
   const newPassword = (req.body.newPassword ?? '').trim()
 
-  if (!identifier || !code || !newPassword) {
-    return res.status(400).json({ error: 'identifier, code, and newPassword are required.' })
-  }
+  if (!rawToken)    return res.status(400).json({ error: 'Reset token is required.' })
+  if (!newPassword) return res.status(400).json({ error: 'New password is required.' })
   if (newPassword.length < 8) {
     return res.status(400).json({ error: 'Password must be at least 8 characters.' })
   }
 
   try {
-    const pool = getPool()
-    const user = await findUserByIdentifier(identifier)
+    const pool      = getPool()
+    const tokenHash = hashCode(rawToken)
 
-    if (!user) return res.status(404).json({ error: 'User not found.' })
-
-    const [[otp]] = await pool.query(
-      `SELECT * FROM otp_codes
-       WHERE user_id = ? AND purpose = 'forgot_password'
-         AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()
-       ORDER BY created_at DESC LIMIT 1`,
-      [user.id]
+    const [[tokenRow]] = await pool.query(
+      `SELECT * FROM password_reset_tokens
+       WHERE token_hash = ? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()
+       LIMIT 1`,
+      [tokenHash]
     )
 
-    if (!otp) {
-      return res.status(400).json({ error: 'Code expired or not found. Request a new reset code.' })
-    }
-
-    if (hashCode(code) !== otp.code_hash) {
-      return res.status(400).json({ error: 'Invalid reset code.' })
+    if (!tokenRow) {
+      return res.status(400).json({
+        error: 'Reset link is invalid or has expired. Please request a new one.',
+      })
     }
 
     const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS)
 
+    // Update password and mark the token consumed — both in parallel
     await Promise.all([
-      pool.query('UPDATE users SET password_hash = ?, is_verified = 1 WHERE id = ?', [passwordHash, user.id]),
-      pool.query('UPDATE otp_codes SET used_at = UTC_TIMESTAMP() WHERE id = ?', [otp.id]),
+      pool.query(
+        'UPDATE users SET password_hash = ?, is_verified = 1 WHERE id = ?',
+        [passwordHash, tokenRow.user_id]
+      ),
+      pool.query(
+        'UPDATE password_reset_tokens SET used_at = UTC_TIMESTAMP() WHERE id = ?',
+        [tokenRow.id]
+      ),
     ])
 
     res.json({ message: 'Password reset successfully. You can now log in.' })
