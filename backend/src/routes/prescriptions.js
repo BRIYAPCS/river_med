@@ -1,6 +1,7 @@
 const { Router } = require('express')
 const { verifyToken, requireRole } = require('../middleware/authMiddleware')
 const {
+  getMyPrescriptions,
   getPrescriptionsByPatient,
   createPrescription,
   requestRefill,
@@ -8,13 +9,20 @@ const {
 
 const router = Router()
 
-// Read: any authenticated user (patient reads their own, doctor reads their patients')
-router.get('/:patientId',  verifyToken, getPrescriptionsByPatient)
+// All prescription routes require authentication
+router.use(verifyToken)
 
-// Write: doctors only
-router.post('/',           verifyToken, requireRole('doctor'), createPrescription)
+// /me must come before /:patientId to avoid being matched as a patient id
+router.get('/me',          getMyPrescriptions)
 
-// Refill via prescriptions route: any authenticated user (patient requests)
-router.post('/:id/refill', verifyToken, requestRefill)
+// Backward-compatible: GET /api/prescriptions/:patientId
+// Patient ownership enforced in controller
+router.get('/:patientId',  getPrescriptionsByPatient)
+
+// Doctor or admin only — doctor_id forced from JWT inside controller
+router.post('/',           requireRole('doctor', 'admin'), createPrescription)
+
+// Patient requests refill on one of their own prescriptions
+router.post('/:id/refill', requireRole('patient'), requestRefill)
 
 module.exports = router
