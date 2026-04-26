@@ -52,6 +52,30 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   INDEX idx_expires      (expires_at)
 ) ENGINE=InnoDB;
 
+-- ── messages: add read_at for read-receipt tracking ──────────────────────────
+-- NULL = unread. Set to UTC_TIMESTAMP() by the receiver via PUT /:id/read.
+
+ALTER TABLE messages
+  ADD COLUMN IF NOT EXISTS read_at DATETIME NULL DEFAULT NULL AFTER body;
+
+-- Index so "unread for doctor/patient" queries stay fast
+DROP PROCEDURE IF EXISTS _add_messages_read_idx;
+DELIMITER $$
+CREATE PROCEDURE _add_messages_read_idx()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.STATISTICS
+    WHERE table_schema = DATABASE()
+      AND table_name   = 'messages'
+      AND index_name   = 'idx_messages_read_at'
+  ) THEN
+    ALTER TABLE messages ADD INDEX idx_messages_read_at (read_at);
+  END IF;
+END$$
+DELIMITER ;
+CALL _add_messages_read_idx();
+DROP PROCEDURE IF EXISTS _add_messages_read_idx;
+
 -- ── appointments: make doctor_id nullable ────────────────────────────────────
 -- Allows patients to submit appointment requests before a doctor is assigned.
 -- Admin assigns the doctor later via PUT /api/appointments/:id/assign.
