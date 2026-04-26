@@ -358,22 +358,44 @@ function IdentifierField({ value, onChange, autoFocus = false }) {
 // ─── Password Tab ─────────────────────────────────────────────────────────────
 
 function PasswordTab({ onSuccess }) {
-  const [identifier, setIdentifier] = useState('')
-  const [password,   setPassword]   = useState('')
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState(null)
+  const [identifier,    setIdentifier]    = useState('')
+  const [password,      setPassword]      = useState('')
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState(null)
+  const [unverified,    setUnverified]    = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendMsg,     setResendMsg]     = useState(null)  // { text, ok }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+    setUnverified(false)
+    setResendMsg(null)
     setLoading(true)
     try {
       const { token, user } = await loginWithPassword(identifier?.trim?.() ?? identifier, password)
       onSuccess(token, user)
     } catch (err) {
       setError(err.message)
+      // 403 + message contains "not verified" → show resend button
+      if (err.message?.toLowerCase().includes('not verified')) {
+        setUnverified(true)
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    setResendLoading(true)
+    setResendMsg(null)
+    try {
+      await requestOtp(identifier.trim(), 'register')
+      setResendMsg({ text: 'Verification code sent — check your inbox (and spam folder).', ok: true })
+    } catch (err) {
+      setResendMsg({ text: err.message || 'Could not send — try again.', ok: false })
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -404,6 +426,33 @@ function PasswordTab({ onSuccess }) {
       </div>
 
       <ErrorBanner message={error} />
+
+      {/* Resend button — only visible after an "Account not verified" error */}
+      {unverified && (
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendLoading}
+            className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-semibold border transition-all"
+            style={{
+              borderColor: 'var(--primary)',
+              color:       'var(--primary)',
+              background:  'transparent',
+              opacity:     resendLoading ? 0.6 : 1,
+              cursor:      resendLoading ? 'not-allowed' : 'pointer',
+            }}>
+            {resendLoading ? <><Spinner /> Sending…</> : '↺ Resend verification email'}
+          </button>
+
+          {resendMsg && (
+            <p className="text-xs text-center px-1"
+              style={{ color: resendMsg.ok ? '#059669' : '#dc2626' }}>
+              {resendMsg.text}
+            </p>
+          )}
+        </div>
+      )}
 
       <button
         type="submit"
