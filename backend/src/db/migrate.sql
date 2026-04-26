@@ -52,6 +52,12 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   INDEX idx_expires      (expires_at)
 ) ENGINE=InnoDB;
 
+-- ── appointments: make doctor_id nullable ────────────────────────────────────
+-- Allows patients to submit appointment requests before a doctor is assigned.
+-- Admin assigns the doctor later via PUT /api/appointments/:id/assign.
+
+ALTER TABLE appointments MODIFY COLUMN doctor_id INT UNSIGNED NULL;
+
 -- ── patients: add user_id back-reference ─────────────────────────────────────
 -- Enables direct lookup from patient → user without joining through users.
 -- Safe to run on existing data; existing rows get NULL until they re-register.
