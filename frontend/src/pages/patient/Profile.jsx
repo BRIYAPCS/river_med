@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getMyPatient, updateMyPatient } from '../../services/api'
+import { getMyPatient, updateMyPatient, getInsurance, upsertInsurance } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -152,6 +152,126 @@ function EditForm({ patient, onSave, onCancel }) {
   )
 }
 
+// ─── InsuranceSection ─────────────────────────────────────────────────────────
+
+function InsuranceSection({ patientId }) {
+  const [ins,     setIns]     = useState(null)
+  const [editing, setEditing] = useState(false)
+  const [form,    setForm]    = useState({})
+  const [saving,  setSaving]  = useState(false)
+  const [msg,     setMsg]     = useState(null)
+
+  useEffect(() => {
+    getInsurance(null).then(data => {
+      setIns(data)
+      setForm({
+        provider_name:  data?.provider_name  ?? '',
+        policy_number:  data?.policy_number  ?? '',
+        group_number:   data?.group_number   ?? '',
+        holder_name:    data?.holder_name    ?? '',
+        effective_date: data?.effective_date?.slice(0,10) ?? '',
+        expiry_date:    data?.expiry_date?.slice(0,10)    ?? '',
+      })
+    }).catch(() => {})
+  }, [patientId])
+
+  async function handleSave(e) {
+    e.preventDefault()
+    setSaving(true); setMsg(null)
+    try {
+      const res = await upsertInsurance({ ...form, patient_id: patientId })
+      setIns(res.insurance)
+      setEditing(false)
+      setMsg({ ok: true, text: 'Insurance saved.' })
+    } catch (err) {
+      setMsg({ ok: false, text: err.message })
+    } finally {
+      setSaving(false)
+      setTimeout(() => setMsg(null), 3500)
+    }
+  }
+
+  const inp = { width: '100%', padding: '9px 12px', borderRadius: 10, border: '1px solid var(--border)', background: '#f8fafc', fontSize: 14, color: 'var(--text-h)', outline: 'none' }
+  const lbl = { display: 'block', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 4 }
+
+  return (
+    <div className="bg-white rounded-2xl border p-6"
+      style={{ borderColor: 'var(--border)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text)' }}>Insurance</h3>
+        {!editing && (
+          <button onClick={() => setEditing(true)}
+            className="text-xs px-3 py-1.5 rounded-lg border font-semibold"
+            style={{ borderColor: 'var(--border)', color: 'var(--text-h)' }}>
+            {ins?.provider_name ? 'Edit' : '+ Add'}
+          </button>
+        )}
+      </div>
+
+      {msg && (
+        <p className="text-xs font-medium mb-3" style={{ color: msg.ok ? '#059669' : '#dc2626' }}>{msg.text}</p>
+      )}
+
+      {editing ? (
+        <form onSubmit={handleSave} className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              ['provider_name', 'Insurance Provider *', true],
+              ['policy_number', 'Policy Number *', true],
+              ['group_number',  'Group Number', false],
+              ['holder_name',   'Policy Holder Name', false],
+            ].map(([k, l, req]) => (
+              <div key={k}>
+                <label style={lbl}>{l}</label>
+                <input style={inp} required={req} value={form[k] ?? ''}
+                  onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
+              </div>
+            ))}
+            <div>
+              <label style={lbl}>Effective Date</label>
+              <input type="date" style={inp} value={form.effective_date ?? ''}
+                onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
+            </div>
+            <div>
+              <label style={lbl}>Expiry Date</label>
+              <input type="date" style={inp} value={form.expiry_date ?? ''}
+                onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))} />
+            </div>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <button type="button" onClick={() => setEditing(false)}
+              className="px-5 py-2 rounded-xl text-sm font-semibold border"
+              style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>Cancel</button>
+            <button type="submit" disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white"
+              style={{ background: 'var(--primary)', opacity: saving ? 0.6 : 1 }}>
+              {saving ? 'Saving…' : 'Save Insurance'}
+            </button>
+          </div>
+        </form>
+      ) : ins?.provider_name ? (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[
+            ['Provider',     ins.provider_name],
+            ['Policy #',     ins.policy_number],
+            ['Group #',      ins.group_number],
+            ['Policy Holder',ins.holder_name],
+            ['Effective',    ins.effective_date?.slice(0,10)],
+            ['Expires',      ins.expiry_date?.slice(0,10)],
+          ].filter(([,v]) => v).map(([lbl2, val]) => (
+            <div key={lbl2} className="flex flex-col gap-0.5">
+              <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text)' }}>{lbl2}</dt>
+              <dd className="text-sm font-medium" style={{ color: 'var(--text-h)' }}>{val}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm" style={{ color: 'var(--text)' }}>No insurance information on file.</p>
+      )}
+    </div>
+  )
+}
+
 // ─── PatientProfile ───────────────────────────────────────────────────────────
 
 export default function PatientProfile() {
@@ -299,6 +419,9 @@ export default function PatientProfile() {
           </dl>
         </div>
       )}
+
+      {/* insurance */}
+      {!editing && patientId && <InsuranceSection patientId={patientId} />}
     </div>
   )
 }

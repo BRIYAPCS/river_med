@@ -1,14 +1,17 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NotificationBell from '../components/NotificationBell'
 
 // ── nav items ─────────────────────────────────────────────────────────────────
 
 const NAV = [
-  { to: '/doctor',             label: 'My Patients',   icon: UsersIcon,    end: true },
-  { to: '/doctor/appointments',label: 'Appointments',  icon: CalendarIcon },
+  { to: '/doctor',              label: 'My Patients',   icon: UsersIcon,    end: true },
+  { to: '/doctor/appointments', label: 'Appointments',  icon: CalendarIcon },
   { to: '/doctor/prescriptions',label: 'Prescriptions', icon: PillIcon },
-  { to: '/doctor/refills',     label: 'Refill Queue',  icon: RefillIcon },
-  { to: '/doctor/messages',    label: 'Messages',      icon: ChatIcon },
+  { to: '/doctor/refills',      label: 'Refill Queue',  icon: RefillIcon },
+  { to: '/doctor/search',       label: 'Find Patient',  icon: SearchIcon },
+  { to: '/doctor/messages',     label: 'Messages',      icon: ChatIcon },
+  { to: '/doctor/profile',      label: 'My Profile',    icon: ProfileIcon },
 ]
 
 const ACCENT    = '#0d9488'
@@ -119,6 +122,7 @@ export default function DoctorLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <NotificationBell accentColor={ACCENT} />
             <span className="text-sm font-semibold truncate max-w-40"
               style={{ color: 'var(--text-h)' }}>
               {name}
@@ -182,6 +186,21 @@ function RefillIcon() {
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polyline points="23 4 23 10 17 10"/>
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+  )
+}
+function SearchIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  )
+}
+function ProfileIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
     </svg>
   )
 }

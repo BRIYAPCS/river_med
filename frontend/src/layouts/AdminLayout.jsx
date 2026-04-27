@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NotificationBell from '../components/NotificationBell'
 
 // ── nav items ─────────────────────────────────────────────────────────────────
 
@@ -120,6 +121,7 @@ export default function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <NotificationBell accentColor={ACCENT} />
             <span className="text-sm font-semibold truncate max-w-40"
               style={{ color: 'var(--text-h)' }}>
               {name}

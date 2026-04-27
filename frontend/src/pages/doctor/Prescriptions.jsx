@@ -130,6 +130,44 @@ function WritePrescriptionForm({ patients, onSubmit, onCancel, loading }) {
 
 // ─── PrescriptionCard ─────────────────────────────────────────────────────────
 
+function printRx(rx) {
+  const w = window.open('', '_blank', 'width=600,height=700')
+  w.document.write(`<!DOCTYPE html><html><head><title>Rx - ${rx.medication_name}</title>
+<style>
+  body { font-family: Georgia, serif; padding: 40px; max-width: 520px; margin: 0 auto; color: #111; }
+  .clinic { font-size: 20px; font-weight: bold; color: #0d9488; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #666; margin-bottom: 24px; border-bottom: 2px solid #0d9488; padding-bottom: 12px; }
+  .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #888; font-weight: 600; margin-top: 16px; margin-bottom: 2px; }
+  .value { font-size: 15px; color: #111; }
+  .med { font-size: 22px; font-weight: bold; margin: 8px 0 4px; color: #0d9488; }
+  .dosage { font-size: 14px; color: #555; }
+  .instructions { margin-top: 8px; font-size: 13px; line-height: 1.6; color: #333; background: #f9fafb; padding: 10px 14px; border-radius: 8px; }
+  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 11px; color: #888; display: flex; justify-content: space-between; }
+  .refill { display: inline-block; background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; margin-top: 4px; }
+  @media print { body { padding: 20px; } }
+</style></head><body>
+<div class="clinic">River Med Clinic</div>
+<div class="subtitle">Official Prescription</div>
+
+<div class="label">Patient</div>
+<div class="value">${rx.patient_name ?? '—'}</div>
+
+<div class="label">Medication</div>
+<div class="med">${rx.medication_name}</div>
+<div class="dosage">${rx.dosage}</div>
+${rx.refill_allowed ? '<div class="refill">Refills Permitted</div>' : ''}
+${rx.instructions ? `<div class="instructions">${rx.instructions}</div>` : ''}
+
+<div class="footer">
+  <span>Date: ${new Date(rx.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+  <span>Rx #${rx.id}</span>
+</div>
+</body></html>`)
+  w.document.close()
+  w.focus()
+  setTimeout(() => { w.print(); w.close() }, 400)
+}
+
 function PrescriptionCard({ rx }) {
   return (
     <div className="bg-white rounded-2xl border p-4 flex items-start gap-4"
@@ -166,6 +204,12 @@ function PrescriptionCard({ rx }) {
           {' · '}{fmtDate(rx.created_at)}
         </p>
       </div>
+
+      <button onClick={() => printRx(rx)} title="Print prescription"
+        className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border flex-shrink-0 transition-colors hover:bg-gray-50"
+        style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>
+        <PrintIcon />
+      </button>
     </div>
   )
 }
@@ -336,5 +380,15 @@ export default function DoctorPrescriptions() {
         )}
       </div>
     </>
+  )
+}
+
+function PrintIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="6 9 6 2 18 2 18 9"/>
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+      <rect x="6" y="14" width="12" height="8"/>
+    </svg>
   )
 }

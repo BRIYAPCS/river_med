@@ -364,3 +364,79 @@ export async function adminVerifyUser(id) {
   if (!id) throw new Error('adminVerifyUser: id is required')
   return request('PUT', `/admin/users/${id}/verify`)
 }
+
+// ─── doctor profile ───────────────────────────────────────────────────────────
+
+export async function getMyDoctor() {
+  return request('GET', '/doctors/me')
+}
+export async function updateMyDoctor(data) {
+  return request('PUT', '/doctors/me', data)
+}
+export async function getMyAvailability() {
+  return request('GET', '/doctors/me/availability')
+}
+export async function setMyAvailability(slots) {
+  return request('PUT', '/doctors/me/availability', slots)
+}
+export async function getDoctorAvailability(doctorId) {
+  if (!doctorId) throw new Error('getDoctorAvailability: doctorId is required')
+  return request('GET', `/doctors/${doctorId}/availability`)
+}
+
+// ─── notifications ────────────────────────────────────────────────────────────
+
+export async function getNotifications() {
+  return request('GET', '/notifications')
+}
+export async function markNotificationRead(id) {
+  if (!id) throw new Error('markNotificationRead: id is required')
+  return request('PUT', `/notifications/${id}/read`)
+}
+export async function markAllNotificationsRead() {
+  return request('PUT', '/notifications/read-all')
+}
+
+// ─── insurance ────────────────────────────────────────────────────────────────
+
+export async function getInsurance(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/insurance${q}`)
+}
+export async function upsertInsurance(data) {
+  return request('PUT', '/insurance', data)
+}
+
+// ─── documents ────────────────────────────────────────────────────────────────
+
+export async function getDocuments(patientId, appointmentId) {
+  const params = new URLSearchParams()
+  if (patientId)     params.set('patient_id',     patientId)
+  if (appointmentId) params.set('appointment_id', appointmentId)
+  return request('GET', `/documents?${params}`)
+}
+
+export async function uploadDocument(formData) {
+  // multipart/form-data — skip the default JSON content-type
+  const token = localStorage.getItem('river_med_token')
+  const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+  const res = await fetch(`${API_BASE}/documents`, {
+    method:  'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body:    formData,
+  })
+  const data = await res.json().catch(() => null)
+  if (!res.ok) throw new Error(data?.error ?? 'Upload failed')
+  return data
+}
+
+export async function deleteDocument(id) {
+  if (!id) throw new Error('deleteDocument: id is required')
+  return request('DELETE', `/documents/${id}`)
+}
+
+export function documentDownloadUrl(id) {
+  const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+  const token    = localStorage.getItem('river_med_token')
+  return `${API_BASE}/documents/${id}/download?token=${token}`
+}

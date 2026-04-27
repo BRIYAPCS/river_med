@@ -1,5 +1,6 @@
-const { getPool }            = require('../db/connection')
+const { getPool }              = require('../db/connection')
 const { broadcastAppointment } = require('../socket')
+const { createNotification }   = require('./notificationsController')
 
 // ── valid status values ────────────────────────────────────────────────────────
 const VALID_STATUSES = new Set([
@@ -182,6 +183,19 @@ async function createAppointment(req, res) {
     )
     broadcastAppointment('appointment_created', created)
 
+    // Notify the patient their appointment was booked
+    if (created.patient_id) {
+      const [[patientUser]] = await pool.query('SELECT id FROM users WHERE patient_id = ?', [created.patient_id])
+      if (patientUser) {
+        await createNotification(patientUser.id, {
+          type:  'appointment',
+          title: 'Appointment booked',
+          body:  `Your appointment on ${new Date(created.appointment_date).toLocaleDateString()} has been scheduled.`,
+          link:  '/patient/appointments',
+        })
+      }
+    }
+
     res.status(201).json({ id: result.insertId, message: 'Appointment created', appointment: created })
   } catch (err) {
     console.error('[appointments] createAppointment:', err.message)
@@ -220,6 +234,21 @@ async function updateAppointmentStatus(req, res) {
 
     const [[updated]] = await pool.query(`${APPOINTMENT_SELECT} WHERE a.id = ?`, [id])
     broadcastAppointment('appointment_updated', updated)
+
+    // Notify patient of status change
+    if (updated.patient_id) {
+      const [[patientUser]] = await pool.query('SELECT id FROM users WHERE patient_id = ?', [updated.patient_id])
+      if (patientUser) {
+        const label = status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')
+        await createNotification(patientUser.id, {
+          type:  'appointment',
+          title: `Appointment ${label}`,
+          body:  `Your appointment status has been updated to: ${label}.`,
+          link:  '/patient/appointments',
+        })
+      }
+    }
+
     res.json({ message: 'Status updated', appointment: updated })
   } catch (err) {
     console.error('[appointments] updateAppointmentStatus:', err.message)

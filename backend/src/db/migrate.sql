@@ -415,3 +415,76 @@ CREATE TABLE IF NOT EXISTS appointment_vitals (
   FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
   FOREIGN KEY (recorded_by)    REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- =============================================================================
+-- TIER 2 FEATURES
+-- =============================================================================
+
+-- ── doctor_availability ───────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS doctor_availability (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  doctor_id   INT UNSIGNED NOT NULL,
+  day_of_week TINYINT UNSIGNED NOT NULL,   -- 0=Sun 1=Mon … 6=Sat
+  start_time  TIME NOT NULL,
+  end_time    TIME NOT NULL,
+  is_active   TINYINT(1) NOT NULL DEFAULT 1,
+  FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+  UNIQUE KEY uq_da (doctor_id, day_of_week),
+  INDEX idx_da_doctor (doctor_id)
+) ENGINE=InnoDB;
+
+-- ── notifications ─────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    INT UNSIGNED NOT NULL,
+  type       VARCHAR(50)  NOT NULL,
+  title      VARCHAR(255) NOT NULL,
+  body       TEXT         NOT NULL,
+  link       VARCHAR(255) NULL,
+  read_at    DATETIME     NULL,
+  created_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_notif_user (user_id),
+  INDEX idx_notif_unread (user_id, read_at)
+) ENGINE=InnoDB;
+
+-- ── patient_insurance ─────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS patient_insurance (
+  id                       INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  patient_id               INT UNSIGNED  NOT NULL UNIQUE,
+  carrier                  VARCHAR(255)  NULL,
+  policy_number            VARCHAR(100)  NULL,
+  group_number             VARCHAR(100)  NULL,
+  subscriber_id            VARCHAR(100)  NULL,
+  subscriber_name          VARCHAR(255)  NULL,
+  relation_to_subscriber   VARCHAR(50)   NULL,
+  valid_from               DATE          NULL,
+  valid_until              DATE          NULL,
+  updated_at               DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ── documents ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS documents (
+  id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  patient_id     INT UNSIGNED NOT NULL,
+  appointment_id INT UNSIGNED NULL,
+  uploaded_by    INT UNSIGNED NOT NULL,
+  filename       VARCHAR(255) NOT NULL,
+  original_name  VARCHAR(255) NOT NULL,
+  mime_type      VARCHAR(100) NOT NULL,
+  size_bytes     INT UNSIGNED NOT NULL,
+  storage_path   VARCHAR(500) NOT NULL,
+  category       ENUM('lab_result','imaging','referral','report','other') NOT NULL DEFAULT 'other',
+  description    TEXT NULL,
+  created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id)     REFERENCES patients(id)     ON DELETE CASCADE,
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+  FOREIGN KEY (uploaded_by)    REFERENCES users(id)        ON DELETE RESTRICT,
+  INDEX idx_doc_patient     (patient_id),
+  INDEX idx_doc_appointment (appointment_id)
+) ENGINE=InnoDB;

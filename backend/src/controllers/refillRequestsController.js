@@ -1,5 +1,6 @@
-const { getPool }         = require('../db/connection')
-const { broadcastRefill } = require('../socket')
+const { getPool }              = require('../db/connection')
+const { broadcastRefill }      = require('../socket')
+const { createNotification }   = require('./notificationsController')
 
 // ── status maps ───────────────────────────────────────────────────────────────
 // DB ENUM stores title-case; accept lowercase from clients
@@ -170,6 +171,19 @@ async function updateRefillStatus(req, res) {
 
     const [[updated]] = await pool.query(`${REFILL_SELECT} WHERE rr.id = ?`, [id])
     broadcastRefill(updated)
+
+    // Notify patient
+    if (updated.patient_id) {
+      const [[patientUser]] = await pool.query('SELECT id FROM users WHERE patient_id = ?', [updated.patient_id])
+      if (patientUser) {
+        await createNotification(patientUser.id, {
+          type:  'refill',
+          title: `Refill ${dbStatus}`,
+          body:  `Your refill request for ${updated.medication_name} has been ${dbStatus.toLowerCase()}.`,
+          link:  '/patient/prescriptions',
+        })
+      }
+    }
 
     res.json({ message: `Refill ${dbStatus.toLowerCase()}`, request: updated })
   } catch (err) {

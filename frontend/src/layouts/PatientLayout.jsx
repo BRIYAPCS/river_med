@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NotificationBell from '../components/NotificationBell'
 
 // ── nav items ─────────────────────────────────────────────────────────────────
 
@@ -8,6 +9,7 @@ const NAV = [
   { to: '/patient/appointments', label: 'Appointments', icon: '📅' },
   { to: '/patient/prescriptions',label: 'Rx',           icon: '💊' },
   { to: '/patient/history',      label: 'History',      icon: '🩺' },
+  { to: '/patient/documents',    label: 'Documents',    icon: '📁' },
   { to: '/patient/messages',     label: 'Messages',     icon: '💬' },
   { to: '/patient/profile',      label: 'Profile',      icon: '👤' },
 ]
@@ -119,13 +121,16 @@ export default function PatientLayout() {
             </span>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-red-50 hover:border-red-200"
-            style={{ borderColor: 'var(--border)', color: '#dc2626' }}>
-            <LogoutIcon size={13} />
-            <span>Log out</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <NotificationBell accentColor="var(--primary)" />
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors hover:bg-red-50 hover:border-red-200"
+              style={{ borderColor: 'var(--border)', color: '#dc2626' }}>
+              <LogoutIcon size={13} />
+              <span>Log out</span>
+            </button>
+          </div>
         </header>
 
         {/* page content */}

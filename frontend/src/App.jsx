@@ -36,12 +36,15 @@ import DoctorDashboard      from './pages/doctor/Dashboard'
 import DoctorRefills        from './pages/doctor/Refills'
 import DoctorAppointments   from './pages/doctor/Appointments'
 import DoctorPrescriptions  from './pages/doctor/Prescriptions'
+import DoctorProfile        from './pages/doctor/Profile'
+import DoctorPatientSearch  from './pages/doctor/PatientSearch'
 
 // ─── patient portal pages ────────────────────────────────────────────────────
 import PatientPortalDashboard from './pages/patient/Dashboard'
 import PatientAppointments    from './pages/patient/Appointments'
 import PatientPrescriptions   from './pages/patient/Prescriptions'
 import PatientProfile         from './pages/patient/Profile'
+import PatientDocuments       from './pages/patient/Documents'
 
 // ─── shared pages ─────────────────────────────────────────────────────────────
 import ChatPage        from './pages/chat/ChatPage'
@@ -78,7 +81,9 @@ export default function App() {
           <Route path="appointments"    element={<DoctorAppointments />} />
           <Route path="prescriptions"   element={<DoctorPrescriptions />} />
           <Route path="refills"         element={<DoctorRefills />} />
+          <Route path="search"          element={<DoctorPatientSearch />} />
           <Route path="messages"        element={<ChatPage />} />
+          <Route path="profile"         element={<DoctorProfile />} />
         </Route>
       </Route>
 
@@ -89,6 +94,7 @@ export default function App() {
           <Route path="appointments"  element={<PatientAppointments />} />
           <Route path="prescriptions" element={<PatientPrescriptions />} />
           <Route path="history"       element={<MedicalHistory />} />
+          <Route path="documents"     element={<PatientDocuments />} />
           <Route path="messages"      element={<ChatPage />} />
           <Route path="profile"       element={<PatientProfile />} />
         </Route>
