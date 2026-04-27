@@ -39,6 +39,7 @@ jobs:
           host:        ${{ secrets.LINODE_HOST }}
           username:    ${{ secrets.LINODE_USER }}
           key:         ${{ secrets.LINODE_SSH_KEY }}
+          passphrase:  ${{ secrets.LINODE_SSH_PASSPHRASE }}
           port:        ${{ secrets.LINODE_PORT }}
           script_stop: true
           script: |
