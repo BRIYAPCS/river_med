@@ -139,11 +139,36 @@ export default function DoctorLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
           <div className="max-w-5xl mx-auto">
             <Outlet />
           </div>
         </main>
+
+        {/* ── mobile bottom nav ── */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t flex bg-white"
+          style={{ borderColor: 'var(--border)', zIndex: 50 }}>
+          {[
+            { to: '/doctor',              label: 'Patients',  icon: '👥', end: true },
+            { to: '/doctor/appointments', label: 'Schedule',  icon: '📅' },
+            { to: '/doctor/prescriptions',label: 'Rx',        icon: '💊' },
+            { to: '/doctor/messages',     label: 'Messages',  icon: '💬' },
+            { to: '/doctor/profile',      label: 'Profile',   icon: '👤' },
+          ].map(({ to, label, icon, end }) => (
+            <NavLink key={to} to={to} end={end}
+              className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5 no-underline"
+              style={({ isActive }) => ({ color: isActive ? ACCENT : 'var(--text)' })}>
+              <span className="text-xl leading-none">{icon}</span>
+              <span className="text-xs font-medium">{label}</span>
+            </NavLink>
+          ))}
+          <button onClick={handleLogout}
+            className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5"
+            style={{ color: '#dc2626', background: 'transparent', border: 'none' }}>
+            <LogoutIcon size={20} />
+            <span className="text-xs font-medium">Out</span>
+          </button>
+        </nav>
       </div>
     </div>
   )

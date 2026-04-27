@@ -299,7 +299,7 @@ export default function AdminBilling() {
 
       {/* summary cards */}
       {invoices.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[['Total Billed', totals.total, '#6366f1'], ['Paid', totals.paid, '#059669'], ['Pending', totals.pending, '#d97706']].map(([label, val, color]) => (
             <div key={label} className="bg-white rounded-2xl border p-4" style={{ borderColor: 'var(--border)' }}>
               <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text)' }}>{label}</p>

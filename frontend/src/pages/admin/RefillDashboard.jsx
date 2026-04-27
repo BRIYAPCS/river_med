@@ -186,12 +186,12 @@ export default function RefillDashboard() {
         </div>
 
         {/* ── split panel ── */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
 
-          {/* left: list — 35% */}
-          <aside className="flex flex-col border-r flex-shrink-0 overflow-hidden"
+          {/* left: list — full width on mobile, 35% on desktop */}
+          <aside className="flex flex-col border-b lg:border-b-0 lg:border-r flex-shrink-0 overflow-hidden"
             style={{
-              width: '35%', minWidth: 260, maxWidth: 380,
+              width: '100%', maxHeight: '45vh',
               borderColor: 'var(--border)', background: 'white',
             }}>
             <PendingRefillList

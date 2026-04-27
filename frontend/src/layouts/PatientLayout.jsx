@@ -137,16 +137,22 @@ export default function PatientLayout() {
         </header>
 
         {/* page content */}
-        <main className="flex-1 overflow-y-auto p-6 pb-24 lg:pb-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
           <div className="max-w-4xl mx-auto">
             <Outlet />
           </div>
         </main>
 
-        {/* ── mobile bottom nav ── */}
+        {/* ── mobile bottom nav (top 5 + logout) ── */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 border-t flex bg-white"
           style={{ borderColor: 'var(--border)', zIndex: 50 }}>
-          {NAV.map(({ to, label, icon, end }) => (
+          {[
+            { to: '/patient',              label: 'Home',    icon: '🏠', end: true },
+            { to: '/patient/appointments', label: 'Visits',  icon: '📅' },
+            { to: '/patient/prescriptions',label: 'Rx',      icon: '💊' },
+            { to: '/patient/messages',     label: 'Messages',icon: '💬' },
+            { to: '/patient/profile',      label: 'Profile', icon: '👤' },
+          ].map(({ to, label, icon, end }) => (
             <NavLink key={to} to={to} end={end}
               className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5 no-underline"
               style={({ isActive }) => ({ color: isActive ? 'var(--primary)' : 'var(--text)' })}>
@@ -154,13 +160,11 @@ export default function PatientLayout() {
               <span className="text-xs font-medium">{label}</span>
             </NavLink>
           ))}
-          {/* logout tab on mobile */}
-          <button
-            onClick={handleLogout}
+          <button onClick={handleLogout}
             className="flex-1 flex flex-col items-center justify-center py-3 gap-0.5"
             style={{ color: '#dc2626', background: 'transparent', border: 'none' }}>
             <LogoutIcon size={20} />
-            <span className="text-xs font-medium">Log out</span>
+            <span className="text-xs font-medium">Out</span>
           </button>
         </nav>
       </div>

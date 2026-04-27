@@ -257,11 +257,11 @@ export default function DoctorDashboard() {
       </div>
 
       {/* ── split panel ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
 
-        {/* ── left: queue ── */}
-        <aside className="flex flex-col border-r flex-shrink-0 overflow-hidden"
-          style={{ width: '30%', minWidth: 260, maxWidth: 340, borderColor: 'var(--border)', background: 'white' }}>
+        {/* ── left: queue — full width on mobile, fixed 288px on desktop ── */}
+        <aside className="flex flex-col border-b lg:border-b-0 lg:border-r lg:w-72 flex-shrink-0 overflow-hidden"
+          style={{ borderColor: 'var(--border)', background: 'white' }}>
 
           {/* ── active section ── */}
           <div className="px-4 py-2.5 border-b flex items-center justify-between flex-shrink-0"
