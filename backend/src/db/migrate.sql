@@ -161,24 +161,38 @@ DROP PROCEDURE IF EXISTS _river_fix_appointments_fks;
 DELIMITER $$
 CREATE PROCEDURE _river_fix_appointments_fks()
 BEGIN
-  DECLARE v_fk VARCHAR(255) DEFAULT NULL;
+  DECLARE v_fk      VARCHAR(255) DEFAULT NULL;
+  DECLARE v_type_dr VARCHAR(64)  DEFAULT 'int';
+  DECLARE v_type_pt VARCHAR(64)  DEFAULT 'int';
 
-  -- NOT FOUND fires when SELECT … INTO finds zero rows; set the variable to
-  -- NULL so the IF v_fk IS NOT NULL guard below skips the DROP safely.
-  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_fk = NULL;
+  -- No-op handler: if a SELECT INTO finds 0 rows the variable keeps its
+  -- default value — the caller must SET the variable to NULL before each
+  -- SELECT INTO that is used as a guard.
+  DECLARE CONTINUE HANDLER FOR NOT FOUND BEGIN END;
+
+  -- ── detect the actual column type of doctors.id and patients.id ─────────────
+  -- We use dynamic MODIFY so that appointments FK columns always match exactly,
+  -- regardless of whether the original schema used INT or INT UNSIGNED.
+
+  SELECT LOWER(COLUMN_TYPE) INTO v_type_dr
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'doctors' AND COLUMN_NAME = 'id'
+  LIMIT 1;
+
+  SELECT LOWER(COLUMN_TYPE) INTO v_type_pt
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'patients' AND COLUMN_NAME = 'id'
+  LIMIT 1;
 
   -- ── doctor_id ──────────────────────────────────────────────────────────────
 
-  -- Step 1: find existing FK (constraint name varies by install)
+  SET v_fk = NULL;
   SELECT CONSTRAINT_NAME INTO v_fk
   FROM information_schema.KEY_COLUMN_USAGE
-  WHERE TABLE_SCHEMA          = DATABASE()
-    AND TABLE_NAME            = 'appointments'
-    AND COLUMN_NAME           = 'doctor_id'
-    AND REFERENCED_TABLE_NAME IS NOT NULL
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments'
+    AND COLUMN_NAME = 'doctor_id' AND REFERENCED_TABLE_NAME IS NOT NULL
   LIMIT 1;
 
-  -- Step 2: drop it so the MODIFY below is not blocked
   IF v_fk IS NOT NULL THEN
     SET @drop_sql = CONCAT('ALTER TABLE appointments DROP FOREIGN KEY `', v_fk, '`');
     PREPARE _stmt FROM @drop_sql;
@@ -187,19 +201,17 @@ BEGIN
     SET v_fk = NULL;
   END IF;
 
-  -- Step 3: set exact type — INT UNSIGNED NULL matches doctors.id INT UNSIGNED
-  ALTER TABLE appointments
-    MODIFY COLUMN doctor_id INT UNSIGNED NULL;
+  -- MODIFY to the exact same type as doctors.id (dynamic — never hard-coded)
+  SET @mod_dr = CONCAT('ALTER TABLE appointments MODIFY COLUMN doctor_id ', v_type_dr, ' NULL');
+  PREPARE _stmt FROM @mod_dr;
+  EXECUTE _stmt;
+  DEALLOCATE PREPARE _stmt;
 
-  -- Step 4: re-add named FK only if none exists for this column
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.KEY_COLUMN_USAGE
-    WHERE TABLE_SCHEMA          = DATABASE()
-      AND TABLE_NAME            = 'appointments'
-      AND COLUMN_NAME           = 'doctor_id'
-      AND REFERENCED_TABLE_NAME IS NOT NULL
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments'
+      AND COLUMN_NAME = 'doctor_id' AND REFERENCED_TABLE_NAME IS NOT NULL
   ) THEN
-    -- ON DELETE SET NULL: removing a doctor nulls the slot, not the appointment
     ALTER TABLE appointments
       ADD CONSTRAINT fk_appt_doctor
         FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE SET NULL;
@@ -207,16 +219,13 @@ BEGIN
 
   -- ── patient_id ─────────────────────────────────────────────────────────────
 
-  -- Step 1: find existing FK
+  SET v_fk = NULL;
   SELECT CONSTRAINT_NAME INTO v_fk
   FROM information_schema.KEY_COLUMN_USAGE
-  WHERE TABLE_SCHEMA          = DATABASE()
-    AND TABLE_NAME            = 'appointments'
-    AND COLUMN_NAME           = 'patient_id'
-    AND REFERENCED_TABLE_NAME IS NOT NULL
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments'
+    AND COLUMN_NAME = 'patient_id' AND REFERENCED_TABLE_NAME IS NOT NULL
   LIMIT 1;
 
-  -- Step 2: drop it
   IF v_fk IS NOT NULL THEN
     SET @drop_sql = CONCAT('ALTER TABLE appointments DROP FOREIGN KEY `', v_fk, '`');
     PREPARE _stmt FROM @drop_sql;
@@ -225,17 +234,15 @@ BEGIN
     SET v_fk = NULL;
   END IF;
 
-  -- Step 3: set exact type — INT UNSIGNED NOT NULL matches patients.id INT UNSIGNED
-  ALTER TABLE appointments
-    MODIFY COLUMN patient_id INT UNSIGNED NOT NULL;
+  SET @mod_pt = CONCAT('ALTER TABLE appointments MODIFY COLUMN patient_id ', v_type_pt, ' NOT NULL');
+  PREPARE _stmt FROM @mod_pt;
+  EXECUTE _stmt;
+  DEALLOCATE PREPARE _stmt;
 
-  -- Step 4: re-add named FK only if none exists for this column
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.KEY_COLUMN_USAGE
-    WHERE TABLE_SCHEMA          = DATABASE()
-      AND TABLE_NAME            = 'appointments'
-      AND COLUMN_NAME           = 'patient_id'
-      AND REFERENCED_TABLE_NAME IS NOT NULL
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'appointments'
+      AND COLUMN_NAME = 'patient_id' AND REFERENCED_TABLE_NAME IS NOT NULL
   ) THEN
     ALTER TABLE appointments
       ADD CONSTRAINT fk_appt_patient
