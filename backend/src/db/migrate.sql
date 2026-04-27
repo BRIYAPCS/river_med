@@ -340,6 +340,31 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 -- TIER 1 FEATURES
 -- =============================================================================
 
+-- ── appointments.status — extend ENUM to include all values the app uses ──────
+-- Original schema may only have 'waiting'/'confirmed'/'completed'.
+-- The app also uses 'cancelled' and 'in_progress'; add them if missing.
+
+DROP PROCEDURE IF EXISTS _river_appt_status_enum;
+DELIMITER $$
+CREATE PROCEDURE _river_appt_status_enum()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.COLUMNS
+    WHERE table_schema = DATABASE()
+      AND table_name   = 'appointments'
+      AND column_name  = 'status'
+      AND column_type LIKE '%cancelled%'
+  ) THEN
+    ALTER TABLE appointments
+      MODIFY COLUMN status
+        ENUM('waiting','confirmed','in_progress','completed','cancelled','no_show')
+        NOT NULL DEFAULT 'waiting';
+  END IF;
+END$$
+DELIMITER ;
+CALL _river_appt_status_enum();
+DROP PROCEDURE IF EXISTS _river_appt_status_enum;
+
 -- ── appointments.notes — doctor writes clinical notes on visit completion ─────
 
 DROP PROCEDURE IF EXISTS _river_appt_notes;
