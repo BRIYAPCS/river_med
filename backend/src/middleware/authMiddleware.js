@@ -7,12 +7,14 @@ const jwt = require('jsonwebtoken')
 
 function verifyToken(req, res, next) {
   const header = req.headers.authorization
+  // allow ?token= for file downloads (document, CSV) that can't set headers
+  const rawToken = header?.startsWith('Bearer ') ? header.slice(7) : (req.query.token ?? null)
 
-  if (!header?.startsWith('Bearer ')) {
+  if (!rawToken) {
     return res.status(401).json({ error: 'Authentication required. Provide a Bearer token.' })
   }
 
-  const token = header.slice(7)
+  const token = rawToken
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)

@@ -9,7 +9,10 @@ const NAV = [
   { to: '/patient/appointments', label: 'Appointments', icon: '📅' },
   { to: '/patient/prescriptions',label: 'Rx',           icon: '💊' },
   { to: '/patient/history',      label: 'History',      icon: '🩺' },
+  { to: '/patient/labs',         label: 'Labs',         icon: '🧪' },
+  { to: '/patient/referrals',    label: 'Referrals',    icon: '📋' },
   { to: '/patient/documents',    label: 'Documents',    icon: '📁' },
+  { to: '/patient/invoices',     label: 'Invoices',     icon: '💳' },
   { to: '/patient/messages',     label: 'Messages',     icon: '💬' },
   { to: '/patient/profile',      label: 'Profile',      icon: '👤' },
 ]

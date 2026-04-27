@@ -165,12 +165,12 @@ function InsuranceSection({ patientId }) {
     getInsurance(null).then(data => {
       setIns(data)
       setForm({
-        provider_name:  data?.provider_name  ?? '',
-        policy_number:  data?.policy_number  ?? '',
-        group_number:   data?.group_number   ?? '',
-        holder_name:    data?.holder_name    ?? '',
-        effective_date: data?.effective_date?.slice(0,10) ?? '',
-        expiry_date:    data?.expiry_date?.slice(0,10)    ?? '',
+        carrier:          data?.carrier          ?? '',
+        policy_number:    data?.policy_number    ?? '',
+        group_number:     data?.group_number     ?? '',
+        subscriber_name:  data?.subscriber_name  ?? '',
+        valid_from:       data?.valid_from?.slice(0,10)  ?? '',
+        valid_until:      data?.valid_until?.slice(0,10) ?? '',
       })
     }).catch(() => {})
   }, [patientId])
@@ -179,7 +179,7 @@ function InsuranceSection({ patientId }) {
     e.preventDefault()
     setSaving(true); setMsg(null)
     try {
-      const res = await upsertInsurance({ ...form, patient_id: patientId })
+      const res = await upsertInsurance({ carrier: form.carrier, policy_number: form.policy_number, group_number: form.group_number, subscriber_name: form.subscriber_name, valid_from: form.valid_from || null, valid_until: form.valid_until || null, patient_id: patientId })
       setIns(res.insurance)
       setEditing(false)
       setMsg({ ok: true, text: 'Insurance saved.' })
@@ -216,10 +216,10 @@ function InsuranceSection({ patientId }) {
         <form onSubmit={handleSave} className="flex flex-col gap-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
-              ['provider_name', 'Insurance Provider *', true],
-              ['policy_number', 'Policy Number *', true],
-              ['group_number',  'Group Number', false],
-              ['holder_name',   'Policy Holder Name', false],
+              ['carrier',         'Insurance Carrier *', true],
+              ['policy_number',   'Policy Number *', true],
+              ['group_number',    'Group Number', false],
+              ['subscriber_name', 'Subscriber Name', false],
             ].map(([k, l, req]) => (
               <div key={k}>
                 <label style={lbl}>{l}</label>
@@ -229,13 +229,13 @@ function InsuranceSection({ patientId }) {
             ))}
             <div>
               <label style={lbl}>Effective Date</label>
-              <input type="date" style={inp} value={form.effective_date ?? ''}
-                onChange={e => setForm(f => ({ ...f, effective_date: e.target.value }))} />
+              <input type="date" style={inp} value={form.valid_from ?? ''}
+                onChange={e => setForm(f => ({ ...f, valid_from: e.target.value }))} />
             </div>
             <div>
               <label style={lbl}>Expiry Date</label>
-              <input type="date" style={inp} value={form.expiry_date ?? ''}
-                onChange={e => setForm(f => ({ ...f, expiry_date: e.target.value }))} />
+              <input type="date" style={inp} value={form.valid_until ?? ''}
+                onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))} />
             </div>
           </div>
           <div className="flex gap-3 justify-end">
@@ -252,12 +252,12 @@ function InsuranceSection({ patientId }) {
       ) : ins?.provider_name ? (
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            ['Provider',     ins.provider_name],
+            ['Carrier',      ins.carrier],
             ['Policy #',     ins.policy_number],
             ['Group #',      ins.group_number],
-            ['Policy Holder',ins.holder_name],
-            ['Effective',    ins.effective_date?.slice(0,10)],
-            ['Expires',      ins.expiry_date?.slice(0,10)],
+            ['Subscriber',   ins.subscriber_name],
+            ['Effective',    ins.valid_from?.slice(0,10)],
+            ['Expires',      ins.valid_until?.slice(0,10)],
           ].filter(([,v]) => v).map(([lbl2, val]) => (
             <div key={lbl2} className="flex flex-col gap-0.5">
               <dt className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--text)' }}>{lbl2}</dt>

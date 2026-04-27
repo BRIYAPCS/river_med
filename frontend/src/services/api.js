@@ -440,3 +440,60 @@ export function documentDownloadUrl(id) {
   const token    = localStorage.getItem('river_med_token')
   return `${API_BASE}/documents/${id}/download?token=${token}`
 }
+
+// ─── invoices ─────────────────────────────────────────────────────────────────
+
+export async function getInvoices(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/invoices${q}`)
+}
+export async function createInvoice(data) {
+  return request('POST', '/invoices', data)
+}
+export async function updateInvoice(id, data) {
+  if (!id) throw new Error('updateInvoice: id is required')
+  return request('PUT', `/invoices/${id}`, data)
+}
+export async function deleteInvoice(id) {
+  if (!id) throw new Error('deleteInvoice: id is required')
+  return request('DELETE', `/invoices/${id}`)
+}
+
+// ─── lab results ──────────────────────────────────────────────────────────────
+
+export async function getLabResults(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/lab_results${q}`)
+}
+export async function createLabResult(data) {
+  return request('POST', '/lab_results', data)
+}
+export async function updateLabResult(id, data) {
+  if (!id) throw new Error('updateLabResult: id is required')
+  return request('PUT', `/lab_results/${id}`, data)
+}
+export async function deleteLabResult(id) {
+  if (!id) throw new Error('deleteLabResult: id is required')
+  return request('DELETE', `/lab_results/${id}`)
+}
+
+// ─── referrals ────────────────────────────────────────────────────────────────
+
+export async function getReferrals(patientId) {
+  const q = patientId ? `?patient_id=${patientId}` : ''
+  return request('GET', `/referrals${q}`)
+}
+export async function createReferral(data) {
+  return request('POST', '/referrals', data)
+}
+export async function updateReferralStatus(id, status, notes) {
+  if (!id) throw new Error('updateReferralStatus: id is required')
+  return request('PUT', `/referrals/${id}/status`, { status, notes })
+}
+
+// ─── audit log ────────────────────────────────────────────────────────────────
+
+export async function getAuditLog(params = {}) {
+  const q = new URLSearchParams(params).toString()
+  return request('GET', `/audit_log${q ? '?' + q : ''}`)
+}

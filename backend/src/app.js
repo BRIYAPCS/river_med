@@ -19,6 +19,11 @@ const vitalsRouter         = require('./routes/vitals')
 const notificationsRouter  = require('./routes/notifications')
 const insuranceRouter      = require('./routes/insurance')
 const documentsRouter      = require('./routes/documents')
+const invoicesRouter       = require('./routes/invoices')
+const labResultsRouter     = require('./routes/labResults')
+const referralsRouter      = require('./routes/referrals')
+const reportsRouter        = require('./routes/reports')
+const auditRouter          = require('./routes/audit')
 
 const app = express()
 
@@ -89,6 +94,13 @@ app.use('/api/appointments/:id/vitals',   vitalsRouter)
 app.use('/api/notifications',             notificationsRouter)
 app.use('/api/insurance',                 insuranceRouter)
 app.use('/api/documents',                 documentsRouter)
+
+// ── Tier 3 routes ─────────────────────────────────────────────────────────────
+app.use('/api/invoices',                  invoicesRouter)
+app.use('/api/lab_results',               labResultsRouter)
+app.use('/api/referrals',                 referralsRouter)
+app.use('/api/reports',                   reportsRouter)
+app.use('/api/audit_log',                 auditRouter)
 
 app.get('/', (_req, res) => res.json({ message: 'River Med API running' }))
 

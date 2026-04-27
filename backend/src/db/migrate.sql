@@ -488,3 +488,87 @@ CREATE TABLE IF NOT EXISTS documents (
   INDEX idx_doc_patient     (patient_id),
   INDEX idx_doc_appointment (appointment_id)
 ) ENGINE=InnoDB;
+
+-- =============================================================================
+-- TIER 3 FEATURES
+-- =============================================================================
+
+-- ── invoices ──────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS invoices (
+  id             INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
+  patient_id     INT UNSIGNED   NOT NULL,
+  appointment_id INT UNSIGNED   NULL,
+  amount         DECIMAL(10,2)  NOT NULL DEFAULT 0,
+  status         ENUM('draft','sent','paid','void') NOT NULL DEFAULT 'draft',
+  due_date       DATE           NULL,
+  line_items     JSON           NULL,
+  notes          TEXT           NULL,
+  created_by     INT UNSIGNED   NULL,
+  created_at     TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TIMESTAMP      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id)     REFERENCES patients(id)     ON DELETE CASCADE,
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by)     REFERENCES users(id)        ON DELETE SET NULL,
+  INDEX idx_inv_patient (patient_id),
+  INDEX idx_inv_status  (status)
+) ENGINE=InnoDB;
+
+-- ── lab_results ───────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS lab_results (
+  id              INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  patient_id      INT UNSIGNED  NOT NULL,
+  doctor_id       INT UNSIGNED  NULL,
+  appointment_id  INT UNSIGNED  NULL,
+  test_name       VARCHAR(255)  NOT NULL,
+  result_value    TEXT          NULL,
+  unit            VARCHAR(50)   NULL,
+  reference_range VARCHAR(100)  NULL,
+  status          ENUM('pending','resulted','reviewed') NOT NULL DEFAULT 'pending',
+  notes           TEXT          NULL,
+  resulted_at     DATETIME      NULL,
+  created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id)     REFERENCES patients(id)     ON DELETE CASCADE,
+  FOREIGN KEY (doctor_id)      REFERENCES doctors(id)      ON DELETE SET NULL,
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE SET NULL,
+  INDEX idx_lr_patient (patient_id),
+  INDEX idx_lr_doctor  (doctor_id)
+) ENGINE=InnoDB;
+
+-- ── referrals ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS referrals (
+  id                  INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  patient_id          INT UNSIGNED  NOT NULL,
+  referring_doctor_id INT UNSIGNED  NULL,
+  referred_to_name    VARCHAR(255)  NULL,
+  referred_specialty  VARCHAR(255)  NULL,
+  reason              TEXT          NULL,
+  status              ENUM('pending','accepted','completed','cancelled') NOT NULL DEFAULT 'pending',
+  notes               TEXT          NULL,
+  created_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (patient_id)          REFERENCES patients(id) ON DELETE CASCADE,
+  FOREIGN KEY (referring_doctor_id) REFERENCES doctors(id)  ON DELETE SET NULL,
+  INDEX idx_ref_patient (patient_id),
+  INDEX idx_ref_doctor  (referring_doctor_id)
+) ENGINE=InnoDB;
+
+-- ── audit_log ─────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id          INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
+  user_id     INT UNSIGNED  NULL,
+  user_role   VARCHAR(20)   NULL,
+  action      VARCHAR(100)  NOT NULL,
+  entity_type VARCHAR(50)   NULL,
+  entity_id   INT UNSIGNED  NULL,
+  details     JSON          NULL,
+  ip_address  VARCHAR(45)   NULL,
+  created_at  TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_audit_user    (user_id),
+  INDEX idx_audit_action  (action),
+  INDEX idx_audit_entity  (entity_type, entity_id),
+  INDEX idx_audit_created (created_at)
+) ENGINE=InnoDB;

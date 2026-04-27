@@ -29,6 +29,9 @@ import AdminAnalytics      from './pages/admin/Analytics'
 import AdminQueue          from './pages/admin/Queue'
 import AdminPatients       from './pages/admin/Patients'
 import AdminAppointments   from './pages/admin/Appointments'
+import AdminBilling        from './pages/admin/Billing'
+import AdminReports        from './pages/admin/Reports'
+import AdminAuditLog       from './pages/admin/AuditLog'
 import CalendarPage        from './pages/calendar/CalendarPage'
 
 // ─── doctor pages ─────────────────────────────────────────────────────────────
@@ -45,10 +48,13 @@ import PatientAppointments    from './pages/patient/Appointments'
 import PatientPrescriptions   from './pages/patient/Prescriptions'
 import PatientProfile         from './pages/patient/Profile'
 import PatientDocuments       from './pages/patient/Documents'
+import PatientInvoices        from './pages/patient/Invoices'
 
 // ─── shared pages ─────────────────────────────────────────────────────────────
 import ChatPage        from './pages/chat/ChatPage'
 import MedicalHistory  from './pages/shared/MedicalHistory'
+import LabResults      from './pages/shared/LabResults'
+import Referrals       from './pages/shared/Referrals'
 
 export default function App() {
   return (
@@ -70,6 +76,9 @@ export default function App() {
           <Route path="patients"      element={<AdminPatients />} />
           <Route path="appointments"  element={<AdminAppointments />} />
           <Route path="analytics"     element={<AdminAnalytics />} />
+          <Route path="billing"       element={<AdminBilling />} />
+          <Route path="reports"       element={<AdminReports />} />
+          <Route path="audit"         element={<AdminAuditLog />} />
           <Route path="calendar"      element={<CalendarPage />} />
         </Route>
       </Route>
@@ -82,6 +91,8 @@ export default function App() {
           <Route path="prescriptions"   element={<DoctorPrescriptions />} />
           <Route path="refills"         element={<DoctorRefills />} />
           <Route path="search"          element={<DoctorPatientSearch />} />
+          <Route path="labs"            element={<LabResults />} />
+          <Route path="referrals"       element={<Referrals />} />
           <Route path="messages"        element={<ChatPage />} />
           <Route path="profile"         element={<DoctorProfile />} />
         </Route>
@@ -95,6 +106,9 @@ export default function App() {
           <Route path="prescriptions" element={<PatientPrescriptions />} />
           <Route path="history"       element={<MedicalHistory />} />
           <Route path="documents"     element={<PatientDocuments />} />
+          <Route path="invoices"      element={<PatientInvoices />} />
+          <Route path="labs"          element={<LabResults />} />
+          <Route path="referrals"     element={<Referrals />} />
           <Route path="messages"      element={<ChatPage />} />
           <Route path="profile"       element={<PatientProfile />} />
         </Route>

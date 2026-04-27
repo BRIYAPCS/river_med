@@ -9,6 +9,8 @@ const NAV = [
   { to: '/doctor/appointments', label: 'Appointments',  icon: CalendarIcon },
   { to: '/doctor/prescriptions',label: 'Prescriptions', icon: PillIcon },
   { to: '/doctor/refills',      label: 'Refill Queue',  icon: RefillIcon },
+  { to: '/doctor/labs',         label: 'Lab Results',   icon: LabIcon },
+  { to: '/doctor/referrals',    label: 'Referrals',     icon: ReferralIcon },
   { to: '/doctor/search',       label: 'Find Patient',  icon: SearchIcon },
   { to: '/doctor/messages',     label: 'Messages',      icon: ChatIcon },
   { to: '/doctor/profile',      label: 'My Profile',    icon: ProfileIcon },
@@ -186,6 +188,21 @@ function RefillIcon() {
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <polyline points="23 4 23 10 17 10"/>
       <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+  )
+}
+function LabIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v11l-4 7h14l-4-7V3"/>
+    </svg>
+  )
+}
+function ReferralIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
     </svg>
   )
 }
