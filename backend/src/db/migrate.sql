@@ -363,7 +363,7 @@ DROP PROCEDURE IF EXISTS _river_appt_notes;
 
 CREATE TABLE IF NOT EXISTS patient_allergies (
   id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  patient_id INT UNSIGNED NOT NULL,
+  patient_id INT NOT NULL,
   allergen   VARCHAR(255) NOT NULL,
   severity   ENUM('mild','moderate','severe') NOT NULL DEFAULT 'mild',
   reaction   VARCHAR(500) NULL,
@@ -377,7 +377,7 @@ CREATE TABLE IF NOT EXISTS patient_allergies (
 
 CREATE TABLE IF NOT EXISTS patient_conditions (
   id           INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  patient_id   INT UNSIGNED NOT NULL,
+  patient_id   INT NOT NULL,
   name         VARCHAR(255) NOT NULL,
   status       ENUM('active','chronic','resolved') NOT NULL DEFAULT 'active',
   diagnosed_at DATE NULL,
@@ -391,7 +391,7 @@ CREATE TABLE IF NOT EXISTS patient_conditions (
 
 CREATE TABLE IF NOT EXISTS patient_medications (
   id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  patient_id INT UNSIGNED NOT NULL,
+  patient_id INT NOT NULL,
   name       VARCHAR(255) NOT NULL,
   dosage     VARCHAR(255) NULL,
   frequency  VARCHAR(255) NULL,
@@ -407,7 +407,7 @@ CREATE TABLE IF NOT EXISTS patient_medications (
 
 CREATE TABLE IF NOT EXISTS appointment_vitals (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  appointment_id INT UNSIGNED NOT NULL UNIQUE,
+  appointment_id INT NOT NULL UNIQUE,
   weight_kg      DECIMAL(5,2) NULL,
   height_cm      DECIMAL(5,1) NULL,
   bp_systolic    SMALLINT UNSIGNED NULL,
@@ -431,7 +431,7 @@ CREATE TABLE IF NOT EXISTS appointment_vitals (
 
 CREATE TABLE IF NOT EXISTS doctor_availability (
   id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  doctor_id   INT UNSIGNED NOT NULL,
+  doctor_id   INT NOT NULL,
   day_of_week TINYINT UNSIGNED NOT NULL,   -- 0=Sun 1=Mon … 6=Sat
   start_time  TIME NOT NULL,
   end_time    TIME NOT NULL,
@@ -461,7 +461,7 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE TABLE IF NOT EXISTS patient_insurance (
   id                       INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
-  patient_id               INT UNSIGNED  NOT NULL UNIQUE,
+  patient_id               INT           NOT NULL UNIQUE,
   carrier                  VARCHAR(255)  NULL,
   policy_number            VARCHAR(100)  NULL,
   group_number             VARCHAR(100)  NULL,
@@ -478,8 +478,8 @@ CREATE TABLE IF NOT EXISTS patient_insurance (
 
 CREATE TABLE IF NOT EXISTS documents (
   id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  patient_id     INT UNSIGNED NOT NULL,
-  appointment_id INT UNSIGNED NULL,
+  patient_id     INT NOT NULL,
+  appointment_id INT NULL,
   uploaded_by    INT UNSIGNED NOT NULL,
   filename       VARCHAR(255) NOT NULL,
   original_name  VARCHAR(255) NOT NULL,
@@ -504,8 +504,8 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE TABLE IF NOT EXISTS invoices (
   id             INT UNSIGNED   AUTO_INCREMENT PRIMARY KEY,
-  patient_id     INT UNSIGNED   NOT NULL,
-  appointment_id INT UNSIGNED   NULL,
+  patient_id     INT            NOT NULL,
+  appointment_id INT            NULL,
   amount         DECIMAL(10,2)  NOT NULL DEFAULT 0,
   status         ENUM('draft','sent','paid','void') NOT NULL DEFAULT 'draft',
   due_date       DATE           NULL,
@@ -525,9 +525,9 @@ CREATE TABLE IF NOT EXISTS invoices (
 
 CREATE TABLE IF NOT EXISTS lab_results (
   id              INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
-  patient_id      INT UNSIGNED  NOT NULL,
-  doctor_id       INT UNSIGNED  NULL,
-  appointment_id  INT UNSIGNED  NULL,
+  patient_id      INT           NOT NULL,
+  doctor_id       INT           NULL,
+  appointment_id  INT           NULL,
   test_name       VARCHAR(255)  NOT NULL,
   result_value    TEXT          NULL,
   unit            VARCHAR(50)   NULL,
@@ -547,8 +547,8 @@ CREATE TABLE IF NOT EXISTS lab_results (
 
 CREATE TABLE IF NOT EXISTS referrals (
   id                  INT UNSIGNED  AUTO_INCREMENT PRIMARY KEY,
-  patient_id          INT UNSIGNED  NOT NULL,
-  referring_doctor_id INT UNSIGNED  NULL,
+  patient_id          INT           NOT NULL,
+  referring_doctor_id INT           NULL,
   referred_to_name    VARCHAR(255)  NULL,
   referred_specialty  VARCHAR(255)  NULL,
   reason              TEXT          NULL,
